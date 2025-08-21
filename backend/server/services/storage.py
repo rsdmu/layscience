@@ -1,42 +1,27 @@
-"""
-Robust storage module for LayScience.
-
-This module defines a helper to compute a local path for an uploaded PDF.
-It respects the ``LOCAL_UPLOAD_DIR`` environment variable and falls
-back to a writable directory under ``/tmp`` when the configured
-location is not writable.  This prevents failures in read‑only
-deployment environments.
-"""
 import os
-import tempfile
+import uuid
+import shutil
+from typing import Tuple
 
-# Determine a base directory for uploaded files.  Explicit env var
-# always wins.  Otherwise, we use ``uploads`` in the current working
-# directory if it is writable, or we fall back to ``/tmp/layscience_uploads``.
-_configured = os.getenv("LOCAL_UPLOAD_DIR")
-if _configured:
-    base_dir = _configured
-else:
-    # default relative directory
-    candidate = os.path.join(os.getcwd(), "uploads")
+from fastapi import UploadFile
+
+BASE_UPLOADS = os.getenv("UPLOADS_DIR", "uploads")
+
+def _ensure_dir(path: str):
     try:
-        os.makedirs(candidate, exist_ok=True)
-        # Verify write access
-        if os.access(candidate, os.W_OK):
-            base_dir = candidate
-        else:
-            raise PermissionError
+        os.makedirs(path, exist_ok=True)
+        return path
     except Exception:
-        # Fallback to tmp if the candidate is not writable
-        base_dir = os.path.join(tempfile.gettempdir(), "layscience_uploads")
-        os.makedirs(base_dir, exist_ok=True)
+        # fall back to tmp
+        fallback = os.path.join(os.getenv("TMPDIR", "/tmp"), "uploads")
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
 
-
-def local_path_for(file_id: str) -> str:
-    """Return the absolute path for a given file ID.
-
-    Uploaded PDFs are stored with a ``.pdf`` extension under
-    ``base_dir``.  The directory is created on first use if it does
-    not already exist.
-    """
-    return os.path.join(base_dir, f"{file_id}.pdf")
+def save_upload(file: UploadFile) -> Tuple[str, str]:
+    folder = _ensure_dir(BASE_UPLOADS)
+    ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "pdf").lower()
+    name = f"{uuid.uuid4()}.{ext}"
+    path = os.path.join(folder, name)
+    with open(path, "wb") as out:
+        shutil.copyfileobj(file.file, out)
+    return name, os.path.abspath(path)

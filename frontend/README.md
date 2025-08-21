@@ -1,25 +1,26 @@
-# LayScience Frontend (fixed)
 
-This is a robust Next.js 14 + Tailwind app that talks to your FastAPI backend.
-It uses a dev **proxy** to avoid CORS headaches and CommonJS configs for PostCSS/Tailwind to avoid the `SyntaxError: Unexpected token 'export'` you saw.
+# LayScience Frontend — Fixed
 
-## Quick start
+Next.js 14 app that talks to the backend through an **edge proxy** at `/api/proxy/...`.
+
+## Local dev
 
 ```bash
-# Node 18.17+ or 20 LTS recommended
 cd frontend
-npm i
-echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" > .env.local
+npm install
+# Or: pnpm install / yarn install
+export NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000
 npm run dev
 ```
 
-Open http://localhost:3000 and test:
-- Enter DOI or a direct PDF URL or upload a PDF.
-- Click **Summarise**.
+Open http://localhost:3000 — enter a DOI or URL and/or upload a PDF, then click **Summarize**.
 
-## Notes
+If you see a 404 or CORS error, verify:
 
-- We use CommonJS for `postcss.config.js` and `tailwind.config.js` because Next loads PostCSS config via `require()`.
-- `app/api/proxy/[...path]` forwards all requests to `NEXT_PUBLIC_API_BASE` so local dev does not rely on CORS.
-- If you previously had `postcss.config.mjs` or an ESM `postcss.config.js`, **delete** it and use this one.
-- If a previous `.next` cache exists, clear it: `rm -rf .next node_modules && npm i`.
+- The backend is running at `NEXT_PUBLIC_API_BASE`.
+- Backend `ALLOWED_ORIGINS` includes `http://localhost:3000`.
+- The proxy path matches backend (we support `/api/v1/summaries`, `/summarize`, `/summarise`).
+
+## Deploy
+
+Deploy the frontend (Vercel, Netlify, etc.) and set `NEXT_PUBLIC_API_BASE` to your backend URL.

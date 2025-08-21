@@ -1,177 +1,255 @@
-
 import os
 import uuid
-import shutil
+import time
+import json
 import logging
-from typing import Optional, Dict, Any
+import traceback
+from typing import Optional, Dict, Any, Union
+from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from .services import jobs, storage, summarizer, translator, pdfio
+from pydantic import BaseModel, Field, validator
 
-# --- logging ----------------------------------------------------------------
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+from .services import jobs as jobs_store
+from .services import storage, summarizer, pdfio, fetcher, errors as err
+
+# ----------------------------------------------------------------------------
+# Logging & error handling
+# ----------------------------------------------------------------------------
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s [%(request_id)s] %(message)s",
+)
 logger = logging.getLogger("layscience")
 
-# --- FastAPI app ------------------------------------------------------------
-app = FastAPI(
-    title="LayScience API",
-    version="2.0.0",
-    description="A compact, production-grade API for PDF summarisation and translation."
-)
+# Ensure record has request_id
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        if not hasattr(record, "request_id"):
+            record.request_id = "-"
+        return True
 
-# CORS
-_ALLOWED = os.getenv("ALLOWED_ORIGINS", "*")
-if _ALLOWED == "*":
-    allow_origins = ["*"]
+logger.addFilter(RequestIdFilter())
+
+app = FastAPI(title="LayScience Summarizer API", version="1.1.0")
+
+# CORS -----------------------------------------------------------------------
+ALLOWED = os.getenv("ALLOWED_ORIGINS", "*")
+if ALLOWED == "*":
+    origins = ["*"]
 else:
-    allow_origins = [o.strip() for o in _ALLOWED.split(",") if o.strip()]
+    origins = [s.strip() for s in ALLOWED.split(",") if s.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allow_origins,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
-# ensure local uploads directory exists (used when S3 not configured)
-os.makedirs(storage.LOCAL_UPLOAD_DIR, exist_ok=True)
-
-# --- Pydantic models --------------------------------------------------------
-class Input(BaseModel):
-    doi: Optional[str] = Field(default=None, description="DOI like 10.1038/s41586-020-2649-2")
-    url: Optional[str] = Field(default=None, description="Direct URL to a PDF or page containing PDF")
-    file_id: Optional[str] = Field(default=None, description="Internal uploaded file identifier")
-
-class StartRequest(BaseModel):
-    input: Input
-    mode: str = Field(default="micro", description="micro|extended")
-    privacy: str = Field(default="private", description="process-only|private|public")
-
-class StartResponse(BaseModel):
-    id: str
-    status: str
-
-class StatusResponse(BaseModel):
-    id: str
-    status: str
-
-class SummaryResponse(BaseModel):
-    id: str
-    mode: str
-    source: Dict[str, Any]
-    summary: Dict[str, Any]
-    privacy: str = "private"
-    reading_time_min: Optional[int] = None
-    disclaimers: Optional[str] = None
-
-class TranslateRequest(BaseModel):
-    target_language: str
-
-# --- Routes -----------------------------------------------------------------
-@app.get("/api/v1/health")
-def health():
-    return {"ok": True}
-
-@app.post("/api/v1/upload", summary="Upload a PDF directly to the server")
-async def upload(file: UploadFile = File(...)):
-    if file.content_type not in ("application/pdf", "application/x-pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF uploads are supported")
-    file_id = str(uuid.uuid4())
-    dest_path = storage.local_path_for(file_id)
-    with open(dest_path, "wb") as out:
-        shutil.copyfileobj(file.file, out)
-    logger.info("Uploaded file saved: %s", dest_path)
-    return {"file_id": file_id, "content_type": file.content_type}
-
-@app.post("/api/v1/jobs", response_model=StartResponse, summary="Start summarisation job")
-async def start_job(req: StartRequest, tasks: BackgroundTasks):
+# Middleware to add request id and structured error handling -----------------
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    req_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    request.state.request_id = req_id
+    start = time.time()
     try:
-        job_id = jobs.create(req.dict())
-    except Exception as e:
-        logger.exception("Failed to create job")
-        raise HTTPException(status_code=500, detail=str(e))
-
-    tasks.add_task(_run_job, job_id)  # process in background
-    return {"id": job_id, "status": "running"}
-
-async def _run_job(job_id: str):
-    try:
-        data = jobs.get(job_id)
-        inp = data["input"]
-
-        # Determine source PDF
-        source_info: Dict[str, Any] = {}
-        if inp.get("file_id"):
-            path = storage.local_path_for(inp["file_id"])
-            if not os.path.exists(path):
-                raise FileNotFoundError("Uploaded file not found")
-            source_info = {"type": "upload", "file_id": inp["file_id"]}
-        elif inp.get("url"):
-            path = pdfio.fetch_pdf_from_url(inp["url"])
-            source_info = {"type": "url", "url": inp["url"]}
-        elif inp.get("doi"):
-            url = pdfio.resolve_doi_to_pdf_url(inp["doi"])
-            path = pdfio.fetch_pdf_from_url(url)
-            source_info = {"type": "doi", "doi": inp["doi"], "resolved_url": url}
-        else:
-            raise ValueError("No valid input provided. Supply one of: doi, url, file_id")
-
-        # Extract text
-        text = pdfio.extract_text(path)
-        if len(text.strip()) < 50:
-            raise ValueError("Unable to extract sufficient text from the PDF")
-
-        # Summarise
-        mode = data.get("mode", "micro")
-        summary = summarizer.summarise(text, mode=mode)
-
-        # Assemble response
+        response = await call_next(request)
+    except err.UserFacingError as e:
+        logger.error(f"{e.code}: {e.public_message}", extra={"request_id": req_id})
         payload = {
-            "id": job_id,
-            "mode": mode,
-            "source": source_info,
-            "summary": summary,
-            "privacy": data.get("privacy", "private"),
-            "reading_time_min": max(1, len(text.split()) // 200),
-            "disclaimers": "LLM-generated summary. Verify critical claims with the original source."
+            "error": e.code,
+            "message": e.public_message,
+            "hint": e.hint,
+            "where": e.where,
+            "correlation_id": req_id,
         }
-        jobs.finish(job_id, payload)
-        logger.info("Job %s finished", job_id)
-    except Exception as e:
-        logger.exception("Job %s failed", job_id)
-        jobs.fail(job_id, str(e))
+        return JSONResponse(status_code=e.status_code, content=payload, headers={"X-Request-ID": req_id})
+    except Exception as e:  # pragma: no cover - catch-all
+        tb = traceback.format_exc(limit=3)
+        logger.exception("Unhandled error", extra={"request_id": req_id})
+        payload = {
+            "error": "internal_server_error",
+            "message": "An unexpected error occurred.",
+            "hint": "Check server logs with the given correlation id.",
+            "where": "middleware",
+            "correlation_id": req_id,
+            "debug": tb if os.getenv("DEBUG") == "1" else None
+        }
+        return JSONResponse(status_code=500, content=payload, headers={"X-Request-ID": req_id})
+    dur_ms = int((time.time() - start) * 1000)
+    response.headers["X-Request-ID"] = req_id
+    response.headers["X-Response-Time-ms"] = str(dur_ms)
+    return response
 
-@app.get("/api/v1/jobs/{job_id}", response_model=StatusResponse, summary="Get job status")
-def get_status(job_id: str):
-    j = jobs.get(job_id)
-    if not j:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"id": job_id, "status": j["status"]}
+# Error handlers for Pydantic / FastAPI HTTPException ------------------------
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, e: HTTPException):
+    rid = getattr(request.state, "request_id", "-")
+    logger.error(f"HTTPException {e.status_code}: {e.detail}", extra={"request_id": rid})
+    content = {"error": "http_error", "message": str(e.detail), "correlation_id": rid}
+    return JSONResponse(status_code=e.status_code, content=content, headers={"X-Request-ID": rid})
 
-@app.get("/api/v1/summaries/{job_id}", response_model=SummaryResponse, summary="Fetch completed summary")
-def get_summary(job_id: str):
-    j = jobs.get(job_id)
-    if not j:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if j["status"] != "done":
-        raise HTTPException(status_code=409, detail="Job not finished yet")
-    return j["payload"]
+# Schemas --------------------------------------------------------------------
+class StartJobJSON(BaseModel):
+    ref: Optional[str] = Field(None, description="DOI or URL to paper (landing page or PDF)")
+    length: Optional[str] = Field("default", regex="^(default|extended)$")
 
-@app.post("/api/v1/summaries/{job_id}/translate")
-def translate(job_id: str, req: TranslateRequest):
-    j = jobs.get(job_id)
-    if not j:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if j["status"] != "done":
-        raise HTTPException(status_code=409, detail="Job not finished yet")
-    target = req.target_language
+# Union body: JSON or Multipart ----------------------------------------------
+def _normalize_ref(ref: Optional[str], doi: Optional[str], url: Optional[str]) -> Optional[str]:
+    # Prefer ref; else DOI; else URL
+    return ref or doi or url
+
+# Health endpoints ------------------------------------------------------------
+@app.get("/healthz")
+def healthz():
+    ok, msg = jobs_store.healthcheck()
+    return {"ok": ok, "db": msg, "time": datetime.utcnow().isoformat() + "Z"}
+
+@app.get("/api/v1/version")
+def version():
+    return {"name": "layscience-backend", "version": "1.1.0"}
+
+# Backwards-compat aliases to avoid 404s ------------------------------------
+@app.post("/api/v1/summarize")
+@app.post("/api/v1/summarise")  # UK spelling
+@app.post("/api/v1/summaries")
+async def start_summary(
+    background: BackgroundTasks,
+    request: Request,
+    ref: Optional[str] = Form(default=None),
+    doi: Optional[str] = Form(default=None),
+    url: Optional[str] = Form(default=None),
+    length: Optional[str] = Form(default="default"),
+    pdf: Optional[UploadFile] = File(default=None),
+    body: Optional[StartJobJSON] = None,
+):
+    """
+    Start a summarization job.
+    Accepts either JSON body or multipart form:
+    - JSON: { "ref": "<doi or url>", "length": "default|extended" }
+    - Multipart: fields ref|doi|url, optional 'pdf' file, and 'length'.
+    """
+    rid = getattr(request.state, "request_id", "-")
+
+    # Accept JSON or multipart; FastAPI sends both depending on content-type.
+    if body and not (ref or doi or url or pdf):
+        ref = body.ref
+        length = body.length or length
+
+    # Validate inputs
+    ref_value = _normalize_ref(ref, doi, url)
+    if not ref_value and not pdf:
+        raise err.BadRequest("missing_input", "Provide at least a DOI/URL or upload a PDF.", where="start_summary")
+
+    if length not in ("default", "extended"):
+        raise err.BadRequest("invalid_length", "length must be 'default' or 'extended'", where="start_summary")
+
+    # Store uploaded PDF if provided
+    saved_pdf_path = None
+    saved_pdf_name = None
+    if pdf is not None:
+        if not pdf.filename:
+            raise err.BadRequest("invalid_file", "Uploaded file has no filename.", where="start_summary")
+        if not pdf.content_type or "pdf" not in pdf.content_type.lower():
+            # allow unknown type but enforce .pdf extension if present
+            if not str(pdf.filename).lower().endswith(".pdf"):
+                raise err.BadRequest("invalid_file_type", "Only PDF files are supported for the 'pdf' field.", where="start_summary")
+        saved_pdf_name, saved_pdf_path = storage.save_upload(pdf)
+
+    # Create job record
+    job_id = str(uuid.uuid4())
+    jobs_store.create(
+        job_id=job_id,
+        status="queued",
+        payload={
+            "ref": ref_value,
+            "length": length,
+            "pdf_path": saved_pdf_path,
+            "pdf_name": saved_pdf_name,
+        }
+    )
+
+    # Launch background processing
+    background.add_task(process_job, job_id, request_id=rid)
+    return {"id": job_id, "status": "queued", "correlation_id": rid}
+
+async def process_job(job_id: str, request_id: str):
+    logger.info(f"Processing job {job_id}", extra={"request_id": request_id})
+    job = jobs_store.get(job_id)
+    if not job:
+        logger.error("Job disappeared", extra={"request_id": request_id})
+        return
+
+    jobs_store.update(job_id, status="running")
     try:
-        translated = translator.translate_summary(j["payload"]["summary"], target_language=target)
+        payload = job["payload"]
+        length = payload.get("length", "default")
+        ref = payload.get("ref")
+        pdf_path = payload.get("pdf_path")
+
+        # Acquire and parse content
+        meta: Dict[str, Any] = {}
+        text: str = ""
+
+        if pdf_path:
+            text, meta = pdfio.extract_text_and_meta(pdf_path)
+            meta.setdefault("source", "uploaded_pdf")
+        elif ref:
+            # attempt to fetch
+            text, meta = fetcher.fetch_and_extract(ref)
+        else:
+            raise err.BadRequest("missing_input", "No input provided.", where="process_job")
+
+        if not text.strip():
+            raise err.UserFacingError(
+                code="empty_content",
+                public_message="Couldn't extract any text. If the paper is paywalled or scanned, please upload a direct PDF or paste the abstract.",
+                where="process_job",
+                status_code=422,
+                hint="Try uploading the PDF or provide a different URL/DOI."
+            )
+
+        # Summarize
+        sys_prompt = summarizer.LAY_SUMMARY_SYSTEM_PROMPT
+        summary_md = summarizer.summarize(text=text, meta=meta, length=length, system_prompt=sys_prompt)
+
+        result = {
+            "meta": meta,
+            "length": length,
+            "summary": summary_md,
+            "model": summarizer.MODEL_NAME,
+            "finished_at": datetime.utcnow().isoformat() + "Z"
+        }
+        jobs_store.update(job_id, status="done", result=result)
+        logger.info(f"Job {job_id} done", extra={"request_id": request_id})
+    except err.UserFacingError as e:
+        jobs_store.update(job_id, status="failed", error={"code": e.code, "message": e.public_message, "hint": e.hint, "where": e.where})
+        logger.error(f"User-facing error for job {job_id}: {e.code}", extra={"request_id": request_id})
     except Exception as e:
-        logger.exception("Translation failed")
-        raise HTTPException(status_code=500, detail=str(e))
-    return {"id": job_id, "target_language": target, "summary": translated}
+        tb = traceback.format_exc(limit=3)
+        jobs_store.update(job_id, status="failed", error={"code": "internal", "message": str(e), "trace": tb})
+        logger.exception(f"Job {job_id} crashed", extra={"request_id": request_id})
+
+# Job polling endpoints ------------------------------------------------------
+@app.get("/api/v1/jobs/{job_id}")
+def get_job(job_id: str):
+    j = jobs_store.get(job_id)
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"id": job_id, "status": j["status"], "payload": j.get("payload"), "error": j.get("error")}
+
+@app.get("/api/v1/summaries/{job_id}")
+def get_summary(job_id: str):
+    j = jobs_store.get(job_id)
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if j["status"] != "done":
+        return {"id": job_id, "status": j["status"], "error": j.get("error")}
+    return {"id": job_id, "status": "done", "payload": j["result"]}
