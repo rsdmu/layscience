@@ -128,7 +128,7 @@ export default function Home() {
           </div>
           <div className="flex flex-wrap gap-4 items-center">
             <ModeToggle mode={mode} setMode={setMode} />
-            <PrivacySelect privacy={privacy} setPrivacy={setPrivacy} />
+            <PrivacySelect value={privacy} onChange={setPrivacy} />
           </div>
           <div>
             <Button onClick={run} className="w-full md:w-auto">Summarise</Button>
