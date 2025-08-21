@@ -9,7 +9,7 @@ export default function ModeToggle({ mode, setMode }:{ mode:'micro'|'extended', 
         <Button variant={mode==='micro'?'primary':'secondary'} onClick={()=>setMode('micro')}>3‑sentence</Button>
         <Button variant={mode==='extended'?'primary':'secondary'} onClick={()=>setMode('extended')}>5‑paragraph</Button>
       </div>
-      <div className="small mt-2 opacity-70">No kid/grandparent modes—clear lay summaries only.</div>
+      <div className="small mt-2 opacity-70">Test Version - AI can be baised.</div>
     </div>
   )
 }
