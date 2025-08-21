@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base */
+html, body { height: 100%; }
+body { @apply bg-neutral-950 text-neutral-200 font-body antialiased; }
+
+/* Subtle line grid like the Barabási piece */
+.bg-lines{
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
+}

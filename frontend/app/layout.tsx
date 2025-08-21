@@ -1,18 +1,23 @@
-import './globals.css'
-import { Toaster } from 'react-hot-toast'
+import "./globals.css";
+import type { Metadata } from "next";
+import ClientToaster from "@/components/ClientToaster";
+import { Bebas_Neue, Inter } from "next/font/google";
 
-export const metadata = {
-  title: 'LayScience',
-  description: 'Readable summaries of scientific PDFs',
-}
+const heading = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-heading" });
+const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 
-export default function RootLayout({ children }: {children: React.ReactNode}) {
+export const metadata: Metadata = {
+  title: "LayScience",
+  description: "A crisp frontend for scientific PDF summarisation"
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${heading.variable} ${body.variable}`}>
       <body>
-        <Toaster position="top-center" />
         {children}
+        <ClientToaster />
       </body>
     </html>
-  )
+  );
 }

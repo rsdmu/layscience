@@ -1,60 +1,43 @@
-// Unified API client for the frontend.
-// If NEXT_PUBLIC_API_BASE is set, requests go directly to the backend.
-// Otherwise they are proxied via /api/proxy to avoid CORS in local dev.
+const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
-export type StartPayload = {
-  input: { doi?: string; url?: string; file_id?: string }
-  mode: 'micro' | 'extended'
-  privacy: 'process-only' | 'private' | 'public'
+function api(path: string) {
+  if (typeof window !== "undefined") return `/api/proxy${path}`;
+  return `${BASE}${path}`;
 }
 
-function endpoint(path: string): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE
-  if (base) return `${base}${path.startsWith('/')? '': '/'}${path}`
-  return `/api/proxy${path.startsWith('/')? '': '/'}${path}`
-}
-
-async function ok(r: Response) {
-  if (!r.ok) {
-    let text = await r.text().catch(()=> '')
-    throw new Error(`HTTP ${r.status}: ${text || r.statusText}`)
+async function asJson(res: Response) {
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  if (!res.ok) {
+    const body = isJson ? await res.json().catch(()=>({})) : await res.text();
+    const msg = isJson ? (body.error || JSON.stringify(body)) : body;
+    throw new Error(`HTTP ${res.status}: ${msg}`);
   }
-  return r.json()
+  return isJson ? res.json() : res.text();
 }
 
-export async function upload(file: File) {
-  const form = new FormData()
-  form.append('file', file)
-  const r = await fetch(endpoint('/api/v1/upload'), { method: 'POST', body: form, cache: 'no-store' })
-  return ok(r)
+export async function uploadFile(file: File): Promise<{file_id: string}> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(api("/api/v1/upload"), { method: "POST", body: form });
+  return asJson(res);
 }
 
-export async function startJob(payload: StartPayload) {
-  const r = await fetch(endpoint('/api/v1/jobs'), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  })
-  return ok(r)
+export async function startJob(input: { doi?: string; url?: string; file_id?: string }) {
+  const res = await fetch(api("/api/v1/jobs"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input, mode: "micro", privacy: "private" })
+  });
+  return asJson(res);
 }
 
-export async function getStatus(id: string) {
-  const r = await fetch(endpoint(`/api/v1/jobs/${encodeURIComponent(id)}`), { cache: 'no-store' })
-  return ok(r)
+export async function getJob(id: string) {
+  const res = await fetch(api(`/api/v1/jobs/${id}`));
+  return asJson(res);
 }
 
 export async function getSummary(id: string) {
-  const r = await fetch(endpoint(`/api/v1/summaries/${encodeURIComponent(id)}`), { cache: 'no-store' })
-  return ok(r)
-}
-
-export async function translateSummary(id: string, target_language: string) {
-  const r = await fetch(endpoint(`/api/v1/summaries/${encodeURIComponent(id)}/translate`), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ target_language }),
-    cache: 'no-store'
-  })
-  return ok(r)
+  const res = await fetch(api(`/api/v1/summaries/${id}`));
+  return asJson(res);
 }

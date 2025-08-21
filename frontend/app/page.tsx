@@ -1,109 +1,120 @@
-'use client'
+"use client";
 
-import { useMemo, useState, useEffect } from 'react'
-import toast from 'react-hot-toast'
-import Hero from '@/components/Hero'
-import Button from '@/components/ui/Button'
-import Dropzone from '@/components/Dropzone'
-import SummaryCard from '@/components/SummaryCard'
-import Progress from '@/components/ui/Progress'
-import { startJob, getStatus, getSummary } from '@/lib/api'
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { startJob, uploadFile, getJob, getSummary } from "@/lib/api";
 
-export default function Page() {
-  const [doi, setDoi] = useState('')
-  const [url, setUrl] = useState('')
-  const [fileId, setFileId] = useState<string | null>(null)
-  const [mode, setMode] = useState<'micro'|'extended'>('micro')
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [status, setStatus] = useState<string | null>(null)
-  const [progress, setProgress] = useState<number>(0)
-  const [summary, setSummary] = useState<any | null>(null)
+export default function Home() {
+  const [doi, setDoi] = useState("");
+  const [url, setUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "failed">("idle");
+  const [summary, setSummary] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Poll job status once started
-  useEffect(() => {
-    if (!jobId) return
-    let t: any
-    const tick = async () => {
-      try {
-        const s = await getStatus(jobId)
-        setStatus(s.status)
-        setProgress(p => Math.min(95, p + 10))
-        if (s.status === 'done') {
-          const res = await getSummary(jobId)
-          setSummary(res.summary ? res.summary : res)
-          setProgress(100)
-          return
-        }
-        if (s.status === 'failed') {
-          toast.error('The job failed. Check server logs.')
-          return
-        }
-      } catch (e:any) {
-        toast.error(e.message)
-        return
-      }
-      t = setTimeout(tick, 1500)
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, []);
+
+  async function onSubmit() {
+    if (!doi && !url && !file) {
+      toast.error("Provide a DOI, a URL, or upload a PDF.");
+      return;
     }
-    tick()
-    return () => clearTimeout(t)
-  }, [jobId])
+    setBusy(true); setSummary(""); setStatus("running"); setJobId(null);
 
-  async function onSummarise() {
-    setSummary(null)
-    setProgress(5)
     try {
-      const r = await startJob({
-        input: { doi: doi || undefined, url: url || undefined, file_id: fileId || undefined },
-        mode,
-        privacy: 'private'
-      })
-      setJobId(r.id)
-      setStatus(r.status)
-    } catch (e:any) {
-      toast.error(e.message)
-      setProgress(0)
+      let file_id: string | undefined;
+      if (file) {
+        const up = await uploadFile(file);
+        file_id = up.file_id;
+      }
+      const job = await startJob({ doi: doi || undefined, url: url || undefined, file_id });
+      setJobId(job.id);
+
+      pollRef.current = setInterval(async () => {
+        try {
+          const s = await getJob(job.id);
+          setStatus(s.status);
+          if (s.status === "done") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            const r = await getSummary(job.id);
+            setSummary(r.summary?.text || JSON.stringify(r, null, 2));
+            setBusy(false);
+          } else if (s.status === "failed") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setBusy(false);
+            toast.error(s.error || "Job failed");
+          }
+        } catch (e: any) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setBusy(false);
+          toast.error(e.message || "Polling error");
+        }
+      }, 1500);
+    } catch (e: any) {
+      setBusy(false); setStatus("idle");
+      toast.error(e.message || "Could not start the job");
     }
   }
 
   return (
     <main className="min-h-screen">
-      <Hero />
-      <section className="container-lg py-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Controls */}
-        <div className="space-y-4">
-          <div className="card space-y-2">
-            <div className="label">DOI</div>
-            <input value={doi} onChange={e=>setDoi(e.target.value)} className="input" placeholder="10.1038/s41586-020-2649-2" />
-            <div className="label mt-4">Or URL</div>
-            <input value={url} onChange={e=>setUrl(e.target.value)} className="input" placeholder="https://example.com/paper.pdf" />
-            <div className="my-4">
-              <Dropzone onUploaded={(id)=>{ setFileId(id); toast.success('PDF uploaded') }} />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="label mr-3">Mode</label>
-              <select value={mode} onChange={e=>setMode(e.target.value as any)}
-                      className="input max-w-[200px]">
-                <option value="micro">Micro (3 sentences)</option>
-                <option value="extended">Extended</option>
-              </select>
-              <Button className="ml-auto" onClick={onSummarise}>Summarise</Button>
-            </div>
-            {jobId && <Progress value={progress} />}
-            {status && <p className="text-xs text-gray-500">Status: {status}</p>}
+      {/* HERO */}
+      <section className="bg-hero-gradient bg-lines">
+        <div className="mx-auto max-w-5xl px-6 py-12">
+          <div className="border-b border-white/10 pb-8">
+            <h1 className="font-heading text-6xl md:text-8xl tracking-tight text-white">LAYSCIENCE</h1>
+            <p className="mt-3 text-neutral-400 max-w-2xl">
+              Summarise scientific papers in plain language.
+            </p>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input
+              value={doi} onChange={e=>setDoi(e.target.value)}
+              placeholder="DOI (e.g., 10.1038/s41586-020-2649-2)"
+              className="rounded-xl bg-neutral-900/70 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-white/20"
+            />
+            <input
+              value={url} onChange={e=>setUrl(e.target.value)}
+              placeholder="Direct PDF URL"
+              className="rounded-xl bg-neutral-900/70 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-white/20"
+            />
+            <label className="relative overflow-hidden rounded-xl border border-dashed border-white/20 bg-neutral-900/50 hover:bg-neutral-900/70 transition cursor-pointer">
+              <input type="file" accept="application/pdf" className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={e=>setFile(e.target.files?.[0] || null)} />
+              <div className="h-full w-full px-4 py-3 text-neutral-400">
+                {file ? `📄 ${file.name}` : "Drop PDF or click to upload"}
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-6 flex items-center gap-3">
+            <button onClick={onSubmit} disabled={busy}
+              className="rounded-xl bg-white text-black px-5 py-3 font-semibold hover:bg-white/90 disabled:opacity-50">
+              {busy ? "Summarising…" : "Summarise"}
+            </button>
+            {status === "running" && (
+              <span className="text-neutral-400">
+                Job running…{jobId ? ` (${jobId.slice(0,8)}…)` : ""}
+              </span>
+            )}
           </div>
         </div>
+      </section>
 
-        {/* Summary column */}
-        <div>
-          {summary ? (
-            <SummaryCard data={summary} />
-          ) : (
-            <div className="card text-center text-gray-500">
-              <p>Submit a paper to see its summary here.</p>
-            </div>
-          )}
-        </div>
+      {/* SUMMARY */}
+      <section className="mx-auto max-w-4xl px-6 py-10">
+        {summary ? (
+          <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
+            <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
+            <pre className="whitespace-pre-wrap text-neutral-200">{summary}</pre>
+          </article>
+        ) : (
+          <p className="text-neutral-500">No summary yet.</p>
+        )}
       </section>
     </main>
-  )
+  );
 }

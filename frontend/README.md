@@ -1,25 +1,25 @@
-# LayScience Frontend (Next.js 14)
+# LayScience Frontend (fixed)
 
-A minimal, stylish frontend that mirrors the look and feel in your screenshot (bold condensed header, grey gradient hero, thin lines background). It talks to the FastAPI backend.
+This is a robust Next.js 14 + Tailwind app that talks to your FastAPI backend.
+It uses a dev **proxy** to avoid CORS headaches and CommonJS configs for PostCSS/Tailwind to avoid the `SyntaxError: Unexpected token 'export'` you saw.
 
 ## Quick start
 
 ```bash
+# Node 18.17+ or 20 LTS recommended
 cd frontend
 npm i
-# Point to backend
-export NEXT_PUBLIC_API_BASE=http://localhost:8000
+echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" > .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open http://localhost:3000 and test:
+- Enter DOI or a direct PDF URL or upload a PDF.
+- Click **Summarise**.
 
-### Why this avoids “Failed to fetch”
+## Notes
 
-- In **dev** we proxy all requests through `/api/proxy` to the backend specified in `NEXT_PUBLIC_API_BASE` to remove CORS issues.
-- In **prod** you can set `NEXT_PUBLIC_API_BASE` to your API domain and also allow that origin on the backend using `ALLOWED_ORIGINS`.
-
-### Environment variables
-
-- `NEXT_PUBLIC_API_BASE` – URL of your backend (e.g. `http://localhost:8000` or `https://api.yourdomain.com`).
-
+- We use CommonJS for `postcss.config.js` and `tailwind.config.js` because Next loads PostCSS config via `require()`.
+- `app/api/proxy/[...path]` forwards all requests to `NEXT_PUBLIC_API_BASE` so local dev does not rely on CORS.
+- If you previously had `postcss.config.mjs` or an ESM `postcss.config.js`, **delete** it and use this one.
+- If a previous `.next` cache exists, clear it: `rm -rf .next node_modules && npm i`.
