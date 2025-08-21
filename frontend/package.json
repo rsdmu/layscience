@@ -18,6 +18,8 @@
     "postcss": "8.4.31"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
     "typescript": "5.4.5"
   }
 }
