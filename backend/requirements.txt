@@ -1,0 +1,7 @@
+boto3==1.34.156
+botocore==1.34.156
+requests==2.32.3
+pdfminer.six==20231228
+rank-bm25==0.2.2
+pydantic==2.8.2
+textstat==0.7.4

@@ -1,0 +1,12 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "layscience"
+resolve_s3 = true
+s3_prefix = "layscience"
+region = "us-east-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "AllowOrigin=\"https://layscience.ai\" DeepinfraApiKeySecretArn=\"arn:aws:secretsmanager:us-east-2:548830422978:secret:prod/deepinfra-qGfgoe\""
+image_repositories = []
