@@ -6,6 +6,7 @@ import logging
 import traceback
 from typing import Optional, Dict, Any, Union
 from datetime import datetime
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -98,8 +99,8 @@ async def http_exception_handler(request: Request, e: HTTPException):
 
 # Schemas --------------------------------------------------------------------
 class StartJobJSON(BaseModel):
-    ref: Optional[str] = Field(None, description="DOI or URL to paper (landing page or PDF)")
-    length: Optional[str] = Field("default", regex="^(default|extended)$")
+    ref: Optional[str] = Field(default=None, description="DOI or URL")
+    length: Literal["default", "extended"] = "default"
 
 # Union body: JSON or Multipart ----------------------------------------------
 def _normalize_ref(ref: Optional[str], doi: Optional[str], url: Optional[str]) -> Optional[str]:
