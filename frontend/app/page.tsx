@@ -19,11 +19,6 @@ export default function Home() {
   const [status, setStatus] = useState<string|undefined>()
   const [progress, setProgress] = useState(15)
   const [summary, setSummary] = useState<any>(null)
-  const [readable, setReadable] = useState(false)
-
-  useEffect(()=>{
-    document.body.classList.toggle('readable', readable)
-  }, [readable])
 
   async function run() {
     const input:any = {}
@@ -66,8 +61,8 @@ export default function Home() {
       <section className="card relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(600px 200px at 80% -20%, rgba(0,191,255,.15), transparent), radial-gradient(400px 160px at 20% 0%, rgba(0,191,255,.08), transparent)'}} />
         <div className="relative">
-          <h1 className="text-4xl font-bold mb-2">Convert papers into clear, accurate lay summaries</h1>
-          <p className="opacity-80 mb-4">Paste a DOI/URL or upload a PDF. Choose 3‑sentence or 5‑paragraph. Every claim links to evidence.</p>
+          <h1 className="text-4xl font-bold mb-2">Summarize research papers</h1>
+          <p className="opacity-80 mb-4">Paste a DOI/URL or upload a PDF.</p>
           <div className="grid sm:grid-cols-2 gap-3">
             <input className="input" placeholder="DOI e.g., 10.xxxx/xxxxx" value={doi} onChange={e=>setDoi(e.target.value)} />
             <input className="input" placeholder="Paper URL e.g., https://..." value={url} onChange={e=>setUrl(e.target.value)} />
@@ -90,28 +85,7 @@ export default function Home() {
         <PrivacySelect value={privacy} onChange={setPrivacy} />
       </div>
 
-      <section className="card" id="about">
-        <div className="grid sm:grid-cols-3 gap-4">
-          <div>
-            <div className="font-semibold mb-1">Evidence‑grounded</div>
-            <div className="small">Every sentence cites supporting text from the paper; the model can’t invent numbers.</div>
-          </div>
-          <div>
-            <div className="font-semibold mb-1">Accessibility & TTS</div>
-            <div className="small">Large text, readability font, keyboard nav, and a one‑click audio narration.</div>
-          </div>
-          <div>
-            <div className="font-semibold mb-1">Privacy modes</div>
-            <div className="small">Process‑only leaves no trace; Private keeps a copy; Public creates a shareable link.</div>
-          </div>
-        </div>
-        <div className="mt-3 small opacity-70">
-          (beta) This is a test version; AI can make mistakes. Verify with the original paper.
-        </div>
-        <div className="mt-3">
-          <label className="small"><input type="checkbox" checked={readable} onChange={()=>setReadable(!readable)} /> Readability font & spacing</label>
-        </div>
-      </section>
+      
 
       {summary && (
         <section>
