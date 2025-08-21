@@ -1,4 +1,16 @@
+/*
+ * Home page for the LayScience application.
+ *
+ * This redesign embraces a light, airy aesthetic inspired by modern
+ * scientific websites.  A prominent header introduces the app and
+ * guides users through entering a DOI/URL or uploading a PDF.  The
+ * summarisation process is started with a single button.  While the
+ * job is running a progress bar provides feedback.  Once the summary
+ * is ready it appears on the right side of the layout in a card.
+ */
+
 'use client'
+
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import Button from '@/components/ui/Button'
@@ -12,86 +24,133 @@ import { startJob, getStatus, getSummary } from '@/lib/api'
 export default function Home() {
   const [doi, setDoi] = useState('')
   const [url, setUrl] = useState('')
-  const [s3Key, setS3Key] = useState<string|undefined>()
-  const [mode, setMode] = useState<'micro'|'extended'>('micro')
-  const [privacy, setPrivacy] = useState<'process-only'|'private'|'public'>('process-only')
-  const [jobId, setJobId] = useState<string|undefined>()
-  const [status, setStatus] = useState<string|undefined>()
-  const [progress, setProgress] = useState(15)
-  const [summary, setSummary] = useState<any>(null)
+  const [s3Key, setS3Key] = useState<string | undefined>(undefined)
+  const [mode, setMode] = useState<'micro' | 'extended'>('micro')
+  const [privacy, setPrivacy] = useState<'process-only' | 'private' | 'public'>('process-only')
+  const [jobId, setJobId] = useState<string | undefined>(undefined)
+  const [status, setStatus] = useState<string | undefined>(undefined)
+  const [progress, setProgress] = useState<number>(0)
+  const [summary, setSummary] = useState<any | null>(null)
 
+  // Upload callback from Dropzone
+  const handleUploaded = (key: string) => {
+    setS3Key(key)
+    toast.success('PDF uploaded successfully')
+  }
+
+  // Kick off summarisation
   async function run() {
-    const input:any = {}
+    const input: any = {}
     if (doi.trim()) input.doi = doi.trim()
     else if (url.trim()) input.url = url.trim()
     else if (s3Key) input.s3_key = s3Key
-    else { toast.error('Provide a DOI, URL, or upload a PDF'); return }
-
+    else {
+      toast.error('Provide a DOI, URL or upload a PDF before summarising')
+      return
+    }
     try {
       const { id } = await startJob({ input, mode, privacy })
-      setJobId(id); setStatus('running'); setProgress(20); setSummary(null)
-      toast.success('Job started')
-    } catch (e:any) {
+      setJobId(id)
+      setStatus('running')
+      setProgress(5)
+      setSummary(null)
+      toast.success('Summary job started')
+    } catch (e: any) {
       toast.error(e.message || 'Failed to start job')
     }
   }
 
-  useEffect(()=>{
+  // Poll job status until completed
+  useEffect(() => {
     if (!jobId) return
-    const t = setInterval(async ()=>{
+    const timer = setInterval(async () => {
       try {
         const s = await getStatus(jobId)
         setStatus(s.status)
-        setProgress(p=> Math.min(95, p + 8))
+        setProgress((p) => Math.min(95, p + 10))
         if (s.status === 'done') {
           const data = await getSummary(jobId)
           setSummary(data)
           setProgress(100)
-          clearInterval(t)
-          history.replaceState({}, '', `/s/${jobId}`)
+          clearInterval(timer)
+          // Update the URL without a reload for sharing
+          if (typeof window !== 'undefined') {
+            history.replaceState({}, '', `/s/${jobId}`)
+          }
           toast.success('Summary ready')
         }
-      } catch {}
-    }, 1200)
-    return ()=>clearInterval(t)
+      } catch (e) {
+        console.error(e)
+      }
+    }, 1500)
+    return () => clearInterval(timer)
   }, [jobId])
 
   return (
-    <div className="space-y-6">
-      <section className="card relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(600px 200px at 80% -20%, rgba(0,191,255,.15), transparent), radial-gradient(400px 160px at 20% 0%, rgba(0,191,255,.08), transparent)'}} />
-        <div className="relative">
-          <h1 className="text-4xl font-bold mb-2">Summarize research papers</h1>
-          <p className="opacity-80 mb-4">Paste a DOI/URL or upload a PDF.</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <input className="input" placeholder="DOI e.g., 10.xxxx/xxxxx" value={doi} onChange={e=>setDoi(e.target.value)} />
-            <input className="input" placeholder="Paper URL e.g., https://..." value={url} onChange={e=>setUrl(e.target.value)} />
+    <main className="container py-10">
+      <section className="text-center mb-12">
+        <h1 className="text-4xl font-bold mb-3">LayScience</h1>
+        <p className="text-lg text-gray-700 max-w-2xl mx-auto">
+          Turn research papers into concise, evidence‑grounded lay summaries. Paste a DOI, enter a URL or upload a PDF to get started.
+        </p>
+      </section>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        {/* Input and controls column */}
+        <div className="space-y-6">
+          <div className="card space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold" htmlFor="doi">DOI</label>
+              <input
+                id="doi"
+                className="input"
+                type="text"
+                placeholder="10.1000/xyz123"
+                value={doi}
+                onChange={(e) => setDoi(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold" htmlFor="url">URL</label>
+              <input
+                id="url"
+                className="input"
+                type="url"
+                placeholder="https://example.com/paper.pdf"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold">Upload PDF</label>
+              <Dropzone onUploaded={handleUploaded} />
+              <p className="small">Max 25MB. Your file is uploaded securely via a one‑time URL.</p>
+            </div>
           </div>
-          <div className="mt-3">
-            <Dropzone onUploaded={setS3Key} />
+          <div className="flex flex-wrap gap-4 items-center">
+            <ModeToggle mode={mode} setMode={setMode} />
+            <PrivacySelect privacy={privacy} setPrivacy={setPrivacy} />
           </div>
-          <div className="mt-3 flex items-center gap-3">
-            <Button onClick={run}>Summarize</Button>
-            {status && <span className="small">Status: {status}</span>}
+          <div>
+            <Button onClick={run} className="w-full md:w-auto">Summarise</Button>
           </div>
-          {status && status !== 'done' && (
-            <div className="mt-3"><Progress value={progress}/></div>
+          {status && (
+            <div className="card">
+              <p className="font-semibold mb-2">Status: {status}</p>
+              {status !== 'done' && <Progress value={progress} />}
+            </div>
           )}
         </div>
-      </section>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <ModeToggle mode={mode} setMode={setMode} />
-        <PrivacySelect value={privacy} onChange={setPrivacy} />
+        {/* Summary column */}
+        <div>
+          {summary ? (
+            <SummaryCard data={summary} id={jobId} />
+          ) : (
+            <div className="card text-center text-gray-500">
+              <p>Submit a paper to see its summary here.</p>
+            </div>
+          )}
+        </div>
       </div>
-
-      
-
-      {summary && (
-        <section>
-          <SummaryCard data={summary} id={jobId} />
-        </section>
-      )}
-    </div>
+    </main>
   )
 }

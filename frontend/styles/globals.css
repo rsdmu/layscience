@@ -2,16 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fonts: favour Inter and the dyslexia-friendly Atkinson Hyperlegible.  */
+/*
+ * Global styles for the LayScience frontend.
+ *
+ * This palette moves away from the stark black/white of the original
+ * prototype and instead uses a soft light theme inspired by modern
+ * scientific web design (e.g. barabasi.com).  The accent colour is a
+ * calming blue used sparingly for interactive elements.  Surfaces are
+ * white with subtle grey borders to create depth without heavy
+ * outlines.  The body text is dark grey for improved readability.
+ */
+
+/* Load Inter and Atkinson Hyperlegible to provide a choice of fonts. */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
 
-/* Colour palette: strictly black and white with subtle greys for depth.  */
 :root {
-  --accent: #ffffff;    /* Primary accent used for buttons and links */
-  --bg: #000000;        /* Background colour */
-  --fg: #ffffff;        /* Foreground (text) colour */
-  --surface: #101010;   /* Card and surface background */
-  --border: #1a1a1a;    /* Subtle borders on cards and inputs */
+  --accent: #0066ff;    /* Primary accent used for buttons and links */
+  --bg: #f7f7f7;        /* Page background colour */
+  --fg: #222222;        /* Primary text colour */
+  --surface: #ffffff;   /* Card and surface background */
+  --border: #e5e5e5;    /* Subtle borders on cards and inputs */
 }
 
 * {
@@ -28,6 +38,7 @@ body {
   color: var(--fg);
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
 }
 
 a {
@@ -45,10 +56,11 @@ a {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Buttons use the accent for filled style and invert colours on hover.  */
+/* Buttons use the accent for filled style and invert colours on hover. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -57,15 +69,15 @@ a {
   border-radius: 0.75rem;
   padding: 0.7rem 1rem;
   background: var(--accent);
-  color: var(--bg);
+  color: #ffffff;
   font-weight: 600;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .btn:hover,
 .btn:focus-visible {
-  background: var(--fg);
-  color: var(--bg);
+  background: #004eb8;
+  color: #ffffff;
 }
 
 .btn.secondary {
@@ -76,7 +88,7 @@ a {
 
 .btn.secondary:hover,
 .btn.secondary:focus-visible {
-  background: var(--border);
+  background: #f0f0f0;
 }
 
 .input,
