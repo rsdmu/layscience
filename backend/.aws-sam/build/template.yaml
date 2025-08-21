@@ -5,7 +5,7 @@ Description: LayScience serverless backend (API + Lambdas + Step Functions + S3 
 Parameters:
   AllowOrigin:
     Type: String
-    Default: https://www.layscience.ai
+    Default: http://localhost:3000
   DeepinfraApiKeySecretArn:
     Type: String
     Description: ARN of Secrets Manager secret holding DEEPINFRA_API_KEY
@@ -68,6 +68,12 @@ Resources:
       CorsConfiguration:
         AllowOrigins:
         - Ref: AllowOrigin
+        - http://localhost:3000
+        - http://localhost:3001
+        - http://localhost:3002
+        - http://127.0.0.1:3000
+        - http://127.0.0.1:3001
+        - http://127.0.0.1:3002
         AllowHeaders:
         - content-type
         - x-api-key
@@ -256,71 +262,36 @@ Resources:
   SummarizeStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Definition:
-        Comment: LayScience summarization pipeline
-        StartAt: FetchMetadata
-        States:
-          FetchMetadata:
-            Type: Task
-            Resource:
-              Fn::GetAtt:
-              - FetchMetadataFn
-              - Arn
-            Next: ParseDocument
-          ParseDocument:
-            Type: Task
-            Resource:
-              Fn::GetAtt:
-              - ParseDocumentFn
-              - Arn
-            Next: PlanAndWrite
-          PlanAndWrite:
-            Type: Task
-            Resource:
-              Fn::GetAtt:
-              - PlanAndWriteFn
-              - Arn
-            Next: EvidenceCheck
-          EvidenceCheck:
-            Type: Task
-            Resource:
-              Fn::GetAtt:
-              - EvidenceCheckFn
-              - Arn
-            Next: Finalize
-          Finalize:
-            Type: Task
-            Resource:
-              Fn::GetAtt:
-              - FinalizeFn
-              - Arn
-            End: true
+      DefinitionUri: ../../src/steps/statemachine.asl.json
+      Role:
+        Fn::GetAtt:
+        - SummarizeStateMachineRole
+        - Arn
+  SummarizeStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: states.amazonaws.com
+          Action: sts:AssumeRole
       Policies:
-      - LambdaInvokePolicy:
-          FunctionName:
-            Ref: FetchMetadataFn
-      - LambdaInvokePolicy:
-          FunctionName:
-            Ref: ParseDocumentFn
-      - LambdaInvokePolicy:
-          FunctionName:
-            Ref: PlanAndWriteFn
-      - LambdaInvokePolicy:
-          FunctionName:
-            Ref: EvidenceCheckFn
-      - LambdaInvokePolicy:
-          FunctionName:
-            Ref: FinalizeFn
-Outputs:
-  ApiBaseUrl:
-    Description: API base URL
-    Value:
-      Fn::Sub: https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
-  UploadBucketName:
-    Description: Upload bucket
-    Value:
-      Ref: UploadBucket
-  DynamoTableName:
-    Description: DynamoDB table
-    Value:
-      Ref: SummariesTable
+      - PolicyName: SummarizeStateMachinePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:PutObject
+            Resource:
+              Fn::Sub: arn:aws:s3:::${UploadBucket}/*
