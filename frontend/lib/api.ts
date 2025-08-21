@@ -1,8 +1,9 @@
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
 function api(path: string) {
-  if (typeof window !== "undefined") return `/api/proxy${path}`;
-  return `${BASE}${path}`;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (typeof window !== "undefined") return `/api/proxy${p}`;
+  return `${BASE}${p}`;
 }
 
 async function asJson(res: Response) {
