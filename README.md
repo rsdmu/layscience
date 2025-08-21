@@ -1,154 +1,86 @@
 # Paper Summarizer — Evidence-Grounded Research Summaries
 
-A production-ready reference implementation of the product described: paste a DOI/URL or upload a PDF, detect paper metadata, choose summary mode, and generate **evidence-grounded** summaries (3-sentence or 5-paragraph) with glossary tooltips, figure/number explainers, i18n, accessibility options, privacy controls, share links, and optional audio.
+A serverless application that turns research papers into short or extended lay summaries with links back to supporting evidence.
 
-## Quick start (Docker Compose)
+## Repository layout
+
+- `backend/` – AWS SAM application (Lambdas, Step Functions, S3 and DynamoDB resources).
+- `frontend/` – Next.js interface.
+
+## Quick start
+
+### Backend (Python + AWS SAM)
+
+Prerequisites: Python 3.11, AWS credentials and the [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html).
 
 ```bash
-# 1) copy env
-cp .env.example .env
-
-# 2) start services (first run will pull images)
-docker compose up --build
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+sam build
+sam local start-api -p 8000  # or: sam deploy --guided
 ```
 
-Services:
-- **frontend**: Next.js on http://localhost:3000
-- **api**: FastAPI on http://localhost:8000/docs
-- **worker**: Celery worker consuming jobs
-- **postgres**: with `pgvector` extension
-- **redis**: for queues and ephemeral storage
-- **minio**: S3-compatible object storage on :9000 (console :9001)
-- **opensearch**: optional full-text (not required for local dev; can be disabled)
-- **grobid**: PDF parsing service
-- **unstructured**: text extraction (fallback for tricky PDFs)
+The summarization step calls DeepInfra's `gpt-oss-120b`. Set `DEEPINFRA_API_KEY` in your environment or store it in Secrets Manager and pass its ARN via `DeepinfraApiKeySecretArn`.
 
-> **Note**: The LLM and embeddings are provider-agnostic. Set `OPENAI_API_KEY` (or use Azure/Bedrock) to enable generation. In CI and tests we mock LLM calls.
+### Frontend (Next.js)
 
-## Key features implemented
-- Evidence-grounded summaries: each sentence links to exact source spans with page+offset.
-- Default (3-sentence) and Extended (5-paragraph) templates.
-- Glossary with hover tooltips, auto-added in Kid/Grandparent modes.
-- Figure & number explainer (caption-aware).
-- Accessibility: large-text toggle, dyslexia-friendly font, keyboard nav, ARIA.
-- i18n: output translation with "show original English" toggle.
-- Privacy: process-only (ephemeral Redis), private library (auth token), public share links.
-- Disclaimers for health/finance/legal content.
-- Reading-level meters (Flesch–Kincaid + CEFR heuristics).
-- Batch mode & REST API: `POST /summaries`.
-- Observability (OpenTelemetry hooks), Sentry (optional), structured logging.
+Prerequisites: Node 18+
 
-## Environment (.env)
-See `.env.example` for all knobs. Minimal to run with OpenAI:
-```
-OPENAI_API_KEY=sk-...
+```bash
+cd frontend
+npm install
+NEXT_PUBLIC_API_BASE=http://localhost:8000 npm run dev
 ```
 
-## Local accounts / auth
-The example app runs without login. If you set `AUTH_REQUIRED=true`, the API expects a Bearer token (e.g., from Auth0) and stores summaries under that subject.
-
-## Migrations
-The DB schema is in `backend/app/migrations/0001_initial.sql`. Apply automatically on start.
+Visit <http://localhost:3000> to use the app.
 
 ## Tests
+
 ```bash
-docker compose exec api pytest -q
+cd backend
+pytest
+
+cd ../frontend
+npm run lint  # prints 'lint skipped'
 ```
 
-## Production deploy
-- Container images are multi-stage and small.
-- Configure object store (S3/GCS), managed Postgres with pgvector, and Redis.
-- Point the frontend at your API with `NEXT_PUBLIC_API_BASE`.
-- Enable HTTPS and WAF at your ingress (e.g., CloudFront/ALB + ACM).
+## API
 
----
+The local API exposes endpoints such as:
 
-**License**: Apache-2.0
+- `POST /upload-url` – obtain a pre‑signed S3 URL for PDF uploads.
+- `POST /summaries` – start a summarization job.
+- `GET /summaries/status?id=...` – poll job status.
+- `GET /summaries/{id}` – fetch the finished summary.
+- `POST /summaries/{id}/translate` – translate a summary.
 
+Example:
 
-## API (FastAPI)
-
-OpenAPI: http://localhost:8000/docs
-
-### Create a summary (URL)
 ```bash
-curl -X POST http://localhost:8000/summaries \\
-  -H 'Content-Type: application/json' \\
+curl -X POST http://localhost:8000/summaries \
+  -H "content-type: application/json" \
   -d '{
-    "input_type": "url",
-    "url": "https://arxiv.org/pdf/1706.03762.pdf",
-    "mode": "default",
-    "privacy": "process-only",
-    "locale": "en"
+    "input": {"url": "https://arxiv.org/pdf/1706.03762.pdf"},
+    "mode": "micro",
+    "privacy": "process-only"
   }'
-```
-
-### Create a summary (DOI)
-```bash
-curl -X POST http://localhost:8000/summaries \\
-  -H 'Content-Type: application/json' \\
-  -d '{
-    "input_type": "doi",
-    "doi": "10.1038/nature14539",
-    "mode": "extended",
-    "privacy": "public",
-    "locale": "en"
-  }'
-```
-
-### Batch mode
-```bash
-curl -X POST http://localhost:8000/summaries/batch -H 'Content-Type: application/json' -d '[
-  {"input_type":"url","url":"https://arxiv.org/pdf/1706.03762.pdf","mode":"default","privacy":"process-only","locale":"en"},
-  {"input_type":"doi","doi":"10.1038/nature14539","mode":"extended","privacy":"public","locale":"en"}
-]'
-```
-
-**Response shape (`SummaryOut`)**
-
-```json
-{
-  "id": "uuid",
-  "headline": "string",
-  "keywords": ["string"],
-  "lay_summary": "string",
-  "lay_summary_translated": "string|null",
-  "jargon_definitions": {"term":"definition"},
-  "evidence": [
-    {"sentence":"...", "entails": true, "spans":[{"page":1,"start":123,"end":321,"text":"..."}]}
-  ],
-  "title": "string",
-  "authors": "string",
-  "journal": "string",
-  "year": 2023,
-  "audio_url": null,
-  "disclaimers": {"health":"..."},
-  "reading_level": {"flesch_kincaid_grade": 9.2, "cefr": "B2"},
-  "source_url": "https://doi.org/..."
-}
 ```
 
 ## Architecture & Guardrails
 
-- **Parser**: GROBID turns PDFs into structured TEI; we extract title/authors/journal/year/body/figures.
-- **Retriever**: text is chunked + embedded (OpenAI embeddings by default). Semantic search selects passages per sentence.
-- **Planner/Writer**: a constrained prompt (in code) produces JSON with a lay summary, headline, keywords, and glossary.
-- **Evidence alignment**: for each sentence we attach top-k source spans (page/start/end/snippet).
-- **NLI check**: optional RoBERTa MNLI gate (`HF_NLI_MODEL=roberta-large-mnli`); `entails=false` is surfaced in UI.
-- **Readability**: Flesch–Kincaid + CEFR heuristic; badge shows "meets target".
-- **i18n**: backend can produce translated output (set non-English `locale`), and UI toggles between English/original.
-- **Accessibility**: large-text / dyslexia-friendly toggles, keyboardable popovers/tooltips, ARIA labels and focus rings.
-- **Privacy**: 
-  - *process-only*: nothing stored (in this demo, results are returned inline; Redis TTL storage is trivial to add).
-  - *private/public*: persist to DB with user subject (set `AUTH_REQUIRED=true` and configure JWT/JWKS).
-- **Figure explainers**: caption → plain-language explanation via LLM.
+- PDF files are stored in S3; metadata and summaries live in DynamoDB.
+- Step Functions orchestrate the following Lambda tasks:
+  1. `FetchMetadata`
+  2. `ParseDocument`
+  3. `PlanAndWrite`
+  4. `EvidenceCheck`
+  5. `Finalize`
+- Each sentence in the summary links back to its source passage.
+- Reading level and disclaimers are computed for the output.
 
-## Hardening for production
+## License
 
-- Swap inline task execution for Celery queue. Keep idempotency keys for retries.
-- Replace the stub NLI with the HF model or a server-side verifier endpoint.
-- Add persistent object-store for input PDFs and presigned viewer links.
-- Rate limit by user & token bucket on NGINX/Envoy.
-- Enable OpenTelemetry exporter + Sentry DSN for traces/errors.
-- Add e2e tests (Playwright) for upload → summary flow.
+Apache-2.0
 
