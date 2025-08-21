@@ -5,7 +5,8 @@ Description: LayScience serverless backend (API + Lambdas + Step Functions + S3 
 Parameters:
   AllowOrigin:
     Type: String
-    Default: https://www.layscience.ai
+    # Default local origin for development; can be overridden at deploy time.
+    Default: http://localhost:3000
   DeepinfraApiKeySecretArn:
     Type: String
     Description: ARN of Secrets Manager secret holding DEEPINFRA_API_KEY
@@ -59,8 +60,16 @@ Resources:
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      # Relax CORS for local development. Multiple localhost origins are permitted.
       CorsConfiguration:
-        AllowOrigins: [ !Ref AllowOrigin ]
+        AllowOrigins:
+          - !Ref AllowOrigin
+          - http://localhost:3000
+          - http://localhost:3001
+          - http://localhost:3002
+          - http://127.0.0.1:3000
+          - http://127.0.0.1:3001
+          - http://127.0.0.1:3002
         AllowHeaders: [ content-type, x-api-key ]
         AllowMethods: [ GET, POST, OPTIONS ]
 
@@ -218,44 +227,33 @@ Resources:
   SummarizeStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Definition:
-        Comment: "LayScience summarization pipeline"
-        StartAt: FetchMetadata
-        States:
-          FetchMetadata:
-            Type: Task
-            Resource: !GetAtt FetchMetadataFn.Arn
-            Next: ParseDocument
-          ParseDocument:
-            Type: Task
-            Resource: !GetAtt ParseDocumentFn.Arn
-            Next: PlanAndWrite
-          PlanAndWrite:
-            Type: Task
-            Resource: !GetAtt PlanAndWriteFn.Arn
-            Next: EvidenceCheck
-          EvidenceCheck:
-            Type: Task
-            Resource: !GetAtt EvidenceCheckFn.Arn
-            Next: Finalize
-          Finalize:
-            Type: Task
-            Resource: !GetAtt FinalizeFn.Arn
-            End: true
-      Policies:
-        - LambdaInvokePolicy: { FunctionName: !Ref FetchMetadataFn }
-        - LambdaInvokePolicy: { FunctionName: !Ref ParseDocumentFn }
-        - LambdaInvokePolicy: { FunctionName: !Ref PlanAndWriteFn }
-        - LambdaInvokePolicy: { FunctionName: !Ref EvidenceCheckFn }
-        - LambdaInvokePolicy: { FunctionName: !Ref FinalizeFn }
+      DefinitionUri: src/steps/statemachine.asl.json
+      Role: !GetAtt SummarizeStateMachineRole.Arn
 
-Outputs:
-  ApiBaseUrl:
-    Description: API base URL
-    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
-  UploadBucketName:
-    Description: Upload bucket
-    Value: !Ref UploadBucket
-  DynamoTableName:
-    Description: DynamoDB table
-    Value: !Ref SummariesTable
+  SummarizeStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SummarizeStateMachinePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${UploadBucket}/*"
