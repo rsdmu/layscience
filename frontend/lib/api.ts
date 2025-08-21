@@ -17,18 +17,22 @@ async function asJson(res: Response) {
   return isJson ? res.json() : res.text();
 }
 
-export async function uploadFile(file: File): Promise<{file_id: string}> {
+export async function startJob({
+  ref,
+  file,
+  length
+}: {
+  ref?: string;
+  file?: File | null;
+  length?: "default" | "extended";
+}) {
   const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(api("/api/v1/upload"), { method: "POST", body: form });
-  return asJson(res);
-}
-
-export async function startJob(input: { doi?: string; url?: string; file_id?: string }) {
-  const res = await fetch(api("/api/v1/jobs"), {
+  if (ref) form.append("ref", ref);
+  if (length) form.append("length", length);
+  if (file) form.append("pdf", file);
+  const res = await fetch(api("/api/v1/summaries"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input, mode: "micro", privacy: "private" })
+    body: form
   });
   return asJson(res);
 }
