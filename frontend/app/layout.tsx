@@ -1,5 +1,6 @@
 import '../styles/globals.css'
 import { Toaster } from 'react-hot-toast'
+import ClientProviders from '@/components/ClientProviders';
 
 export const metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME || 'LayScience (beta)',
