@@ -1,2 +1,0 @@
-"""Lambda function handlers."""
-

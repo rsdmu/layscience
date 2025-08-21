@@ -2,125 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
- * Global styles for the LayScience frontend.
- *
- * This palette moves away from the stark black/white of the original
- * prototype and instead uses a soft light theme inspired by modern
- * scientific web design (e.g. barabasi.com).  The accent colour is a
- * calming blue used sparingly for interactive elements.  Surfaces are
- * white with subtle grey borders to create depth without heavy
- * outlines.  The body text is dark grey for improved readability.
- */
-
-/* Load Inter and Atkinson Hyperlegible to provide a choice of fonts. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
-
 :root {
-  --accent: #0066ff;    /* Primary accent used for buttons and links */
-  --bg: #f7f7f7;        /* Page background colour */
-  --fg: #222222;        /* Primary text colour */
-  --surface: #ffffff;   /* Card and surface background */
-  --border: #e5e5e5;    /* Subtle borders on cards and inputs */
+  --font-display: 'Bebas Neue', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-body: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  html, body {
+    @apply bg-fog text-ink font-body antialiased;
+  }
 }
 
-html,
-body {
-  height: 100%;
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('https://fonts.gstatic.com/s/bebasneue/v13/JTUSjIg1_i6t8kCHKm459Wlhzg.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  line-height: 1.6;
+@font-face {
+  font-family: 'Inter';
+  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3Fwrj2q7AgR59HQ8X0C58A.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
 }
 
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1rem;
+.container-lg {
+  @apply max-w-6xl mx-auto px-6;
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  @apply bg-white rounded-xl shadow-card p-6;
 }
 
-/* Buttons use the accent for filled style and invert colours on hover. */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 0.75rem;
-  padding: 0.7rem 1rem;
-  background: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease;
+.input {
+  @apply border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-black/30 focus:border-black/30 bg-white;
 }
 
-.btn:hover,
-.btn:focus-visible {
-  background: #004eb8;
-  color: #ffffff;
-}
-
-.btn.secondary {
-  background: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--border);
-}
-
-.btn.secondary:hover,
-.btn.secondary:focus-visible {
-  background: #f0f0f0;
-}
-
-.input,
-.select,
-.textarea {
-  width: 100%;
-  background: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  padding: 0.7rem 0.8rem;
-}
-
-.small {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-
-/* Readability mode toggles a more readable font and spacing (good for dyslexia) */
-.readable {
-  font-family: 'Atkinson Hyperlegible', Inter, system-ui, sans-serif;
-  letter-spacing: 0.2px;
-  word-spacing: 1px;
-}
-
-.readable p {
-  line-height: 1.7;
-}
-
-/* Fancy accent ring on focusable elements for keyboard navigation */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 8px;
+.label {
+  @apply text-sm uppercase tracking-wide text-gray-600;
 }

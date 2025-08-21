@@ -1,1 +1,0 @@
-# placeholder for future AWS Translate convenience wrappers

@@ -1,156 +1,109 @@
-/*
- * Home page for the LayScience application.
- *
- * This redesign embraces a light, airy aesthetic inspired by modern
- * scientific websites.  A prominent header introduces the app and
- * guides users through entering a DOI/URL or uploading a PDF.  The
- * summarisation process is started with a single button.  While the
- * job is running a progress bar provides feedback.  Once the summary
- * is ready it appears on the right side of the layout in a card.
- */
-
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import Hero from '@/components/Hero'
 import Button from '@/components/ui/Button'
 import Dropzone from '@/components/Dropzone'
-import ModeToggle from '@/components/ModeToggle'
-import PrivacySelect from '@/components/PrivacySelect'
 import SummaryCard from '@/components/SummaryCard'
 import Progress from '@/components/ui/Progress'
 import { startJob, getStatus, getSummary } from '@/lib/api'
 
-export default function Home() {
+export default function Page() {
   const [doi, setDoi] = useState('')
   const [url, setUrl] = useState('')
-  const [s3Key, setS3Key] = useState<string | undefined>(undefined)
-  const [mode, setMode] = useState<'micro' | 'extended'>('micro')
-  const [privacy, setPrivacy] = useState<'process-only' | 'private' | 'public'>('process-only')
-  const [jobId, setJobId] = useState<string | undefined>(undefined)
-  const [status, setStatus] = useState<string | undefined>(undefined)
+  const [fileId, setFileId] = useState<string | null>(null)
+  const [mode, setMode] = useState<'micro'|'extended'>('micro')
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
   const [progress, setProgress] = useState<number>(0)
   const [summary, setSummary] = useState<any | null>(null)
 
-  // Upload callback from Dropzone
-  const handleUploaded = (key: string) => {
-    setS3Key(key)
-    toast.success('PDF uploaded successfully')
-  }
-
-  // Kick off summarisation
-  async function run() {
-    const input: any = {}
-    if (doi.trim()) input.doi = doi.trim()
-    else if (url.trim()) input.url = url.trim()
-    else if (s3Key) input.s3_key = s3Key
-    else {
-      toast.error('Provide a DOI, URL or upload a PDF before summarising')
-      return
-    }
-    try {
-      const { id } = await startJob({ input, mode, privacy })
-      setJobId(id)
-      setStatus('running')
-      setProgress(5)
-      setSummary(null)
-      toast.success('Summary job started')
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to start job')
-    }
-  }
-
-  // Poll job status until completed
+  // Poll job status once started
   useEffect(() => {
     if (!jobId) return
-    const timer = setInterval(async () => {
+    let t: any
+    const tick = async () => {
       try {
         const s = await getStatus(jobId)
         setStatus(s.status)
-        setProgress((p) => Math.min(95, p + 10))
+        setProgress(p => Math.min(95, p + 10))
         if (s.status === 'done') {
-          const data = await getSummary(jobId)
-          setSummary(data)
+          const res = await getSummary(jobId)
+          setSummary(res.summary ? res.summary : res)
           setProgress(100)
-          clearInterval(timer)
-          // Update the URL without a reload for sharing
-          if (typeof window !== 'undefined') {
-            history.replaceState({}, '', `/s/${jobId}`)
-          }
-          toast.success('Summary ready')
+          return
         }
-      } catch (e) {
-        console.error(e)
+        if (s.status === 'failed') {
+          toast.error('The job failed. Check server logs.')
+          return
+        }
+      } catch (e:any) {
+        toast.error(e.message)
+        return
       }
-    }, 1500)
-    return () => clearInterval(timer)
+      t = setTimeout(tick, 1500)
+    }
+    tick()
+    return () => clearTimeout(t)
   }, [jobId])
 
+  async function onSummarise() {
+    setSummary(null)
+    setProgress(5)
+    try {
+      const r = await startJob({
+        input: { doi: doi || undefined, url: url || undefined, file_id: fileId || undefined },
+        mode,
+        privacy: 'private'
+      })
+      setJobId(r.id)
+      setStatus(r.status)
+    } catch (e:any) {
+      toast.error(e.message)
+      setProgress(0)
+    }
+  }
+
   return (
-    <main className="container py-10">
-      <section className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-3">LayScience</h1>
-        <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-          Turn research papers into concise, evidence‑grounded lay summaries. Paste a DOI, enter a URL or upload a PDF to get started.
-        </p>
-      </section>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        {/* Input and controls column */}
-        <div className="space-y-6">
-          <div className="card space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold" htmlFor="doi">DOI</label>
-              <input
-                id="doi"
-                className="input"
-                type="text"
-                placeholder="10.1000/xyz123"
-                value={doi}
-                onChange={(e) => setDoi(e.target.value)}
-              />
+    <main className="min-h-screen">
+      <Hero />
+      <section className="container-lg py-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Controls */}
+        <div className="space-y-4">
+          <div className="card space-y-2">
+            <div className="label">DOI</div>
+            <input value={doi} onChange={e=>setDoi(e.target.value)} className="input" placeholder="10.1038/s41586-020-2649-2" />
+            <div className="label mt-4">Or URL</div>
+            <input value={url} onChange={e=>setUrl(e.target.value)} className="input" placeholder="https://example.com/paper.pdf" />
+            <div className="my-4">
+              <Dropzone onUploaded={(id)=>{ setFileId(id); toast.success('PDF uploaded') }} />
             </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold" htmlFor="url">URL</label>
-              <input
-                id="url"
-                className="input"
-                type="url"
-                placeholder="https://example.com/paper.pdf"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-              />
+            <div className="flex items-center gap-2">
+              <label className="label mr-3">Mode</label>
+              <select value={mode} onChange={e=>setMode(e.target.value as any)}
+                      className="input max-w-[200px]">
+                <option value="micro">Micro (3 sentences)</option>
+                <option value="extended">Extended</option>
+              </select>
+              <Button className="ml-auto" onClick={onSummarise}>Summarise</Button>
             </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold">Upload PDF</label>
-              <Dropzone onUploaded={handleUploaded} />
-              <p className="small">Max 25MB. Your file is uploaded securely via a one‑time URL.</p>
-            </div>
+            {jobId && <Progress value={progress} />}
+            {status && <p className="text-xs text-gray-500">Status: {status}</p>}
           </div>
-          <div className="flex flex-wrap gap-4 items-center">
-            <ModeToggle mode={mode} setMode={setMode} />
-            <PrivacySelect value={privacy} onChange={setPrivacy} />
-          </div>
-          <div>
-            <Button onClick={run} className="w-full md:w-auto">Summarise</Button>
-          </div>
-          {status && (
-            <div className="card">
-              <p className="font-semibold mb-2">Status: {status}</p>
-              {status !== 'done' && <Progress value={progress} />}
-            </div>
-          )}
         </div>
+
         {/* Summary column */}
         <div>
           {summary ? (
-            <SummaryCard data={summary} id={jobId} />
+            <SummaryCard data={summary} />
           ) : (
             <div className="card text-center text-gray-500">
               <p>Submit a paper to see its summary here.</p>
             </div>
           )}
         </div>
-      </div>
+      </section>
     </main>
   )
 }
