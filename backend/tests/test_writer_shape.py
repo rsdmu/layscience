@@ -1,3 +1,5 @@
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.common.models import SummaryPayload
 
 def test_shape():
