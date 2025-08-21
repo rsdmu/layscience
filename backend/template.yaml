@@ -1,0 +1,259 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: LayScience serverless backend (API + Lambdas + Step Functions + S3 + DynamoDB)
+
+Parameters:
+  AllowOrigin:
+    Type: String
+    # Default local origin for development; can be overridden at deploy time.
+    Default: http://localhost:3000
+  DeepinfraApiKeySecretArn:
+    Type: String
+    Description: ARN of Secrets Manager secret holding DEEPINFRA_API_KEY
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 900
+    MemorySize: 1024
+    Tracing: Active
+    Environment:
+      Variables:
+        UPLOAD_BUCKET: !Ref UploadBucket
+        DDB_TABLE: !Ref SummariesTable
+        ALLOW_ORIGIN: !Ref AllowOrigin
+        DEEPINFRA_CHAT_MODEL: openai/gpt-oss-120b
+        DEEPINFRA_SECRET_ARN: !Ref DeepinfraApiKeySecretArn
+
+Resources:
+
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: ObjectWriter }]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  SummariesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      SSESpecification: { SSEEnabled: true }
+      TableClass: STANDARD_INFREQUENT_ACCESS
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      # Relax CORS for local development. Multiple localhost origins are permitted.
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowOrigin
+          - http://localhost:3000
+          - http://localhost:3001
+          - http://localhost:3002
+          - http://127.0.0.1:3000
+          - http://127.0.0.1:3001
+          - http://127.0.0.1:3002
+        AllowHeaders: [ content-type, x-api-key ]
+        AllowMethods: [ GET, POST, OPTIONS ]
+
+  # ---------- REST Lambdas ----------
+  GetUploadUrlFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: get_upload_url.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /upload-url
+            Method: POST
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref UploadBucket
+
+  StartJobFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: start_job.handler
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref SummarizeStateMachine
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /summaries
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SummariesTable
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt SummarizeStateMachine.Name
+
+  GetStatusFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: get_status.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /summaries/status
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SummariesTable
+
+  GetSummaryFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: get_summary.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: "/summaries/{id}"
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SummariesTable
+
+  TranslateSummaryFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/lambdas/
+      Handler: translate_summary.handler
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: "/summaries/{id}/translate"
+            Method: POST
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SummariesTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - translate:TranslateText
+              Resource: "*"
+
+  # ---------- Step Functions tasks ----------
+  FetchMetadataFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/steps/
+      Handler: fetch_metadata.handler
+
+  ParseDocumentFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/steps/
+      Handler: parse_document.handler
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref UploadBucket
+        - S3WritePolicy:
+            BucketName: !Ref UploadBucket
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - textract:DetectDocumentText
+              Resource: "*"
+
+  PlanAndWriteFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/steps/
+      Handler: plan_and_write.handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref DeepinfraApiKeySecretArn
+
+  EvidenceCheckFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/steps/
+      Handler: evidence_check.handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref DeepinfraApiKeySecretArn
+
+  FinalizeFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/steps/
+      Handler: finalize.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SummariesTable
+
+  SummarizeStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: src/steps/statemachine.asl.json
+      Role: !GetAtt SummarizeStateMachineRole.Arn
+
+  SummarizeStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SummarizeStateMachinePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${UploadBucket}/*"
