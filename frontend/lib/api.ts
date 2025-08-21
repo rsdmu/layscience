@@ -3,7 +3,11 @@ export type StartPayload = {
   mode: 'micro' | 'extended';
   privacy: 'process-only' | 'private' | 'public';
 }
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL!
+const apiBase = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL
+if (!apiBase) {
+  throw new Error('API base URL not configured')
+}
+export const API_BASE = apiBase
 
 async function ok(res: Response) {
   if (!res.ok) {
