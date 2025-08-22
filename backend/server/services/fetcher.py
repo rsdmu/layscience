@@ -66,13 +66,15 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
 
     try:
         timeout = httpx.Timeout(20.0)
+        # Keep r and client alive together
         with httpx.Client(follow_redirects=True, headers=HEADERS, timeout=timeout) as client:
-            # Fetch landing/target
             r = client.get(url)
             r.raise_for_status()
 
-            final_url = str(r.url)  # httpx.URL -> str
+            final_url = str(r.url)  # httpx.URL -> str for urljoin
             ct = (r.headers.get("content-type") or "").lower()
+
+            logger.debug("fetch_and_extract: final_url=%s (type=%s) ct=%s", final_url, type(final_url).__name__, ct)
 
             # Direct PDF response
             if "pdf" in ct or final_url.lower().endswith(".pdf"):
@@ -91,11 +93,12 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
             # Otherwise parse HTML
             html = r.text
             soup = BeautifulSoup(html, "html.parser")
+            base_url = final_url
 
             # Collect candidate PDF links from meta/link/a tags
             candidates: List[str] = []
 
-            # Common meta and link hints
+            # Common meta + link hints
             for selector in [
                 ("meta", {"name": "citation_pdf_url"}),
                 ("meta", {"name": "dc.identifier.fulltext", "scheme": "dcterms.fulltext"}),
@@ -132,9 +135,11 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
                 if low.endswith(".pdf") or "pdf" in low:
                     cleaned.append(href)
 
+            logger.debug("fetch_and_extract: %d candidate PDF hrefs after filtering", len(cleaned))
+
             # Try candidate PDFs
             for href in cleaned:
-                pdf_url = urljoin(str(r.url), href)
+                pdf_url = urljoin(base_url, href)  # both args are str
                 try:
                     pr = client.get(pdf_url)
                     if pr.status_code == 200 and "pdf" in (pr.headers.get("content-type", "").lower()):
