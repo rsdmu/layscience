@@ -5,3 +5,4 @@ beautifulsoup4>=4.12,<5.0
 pypdf>=3.17,<4.0
 openai>=1.12,<2.0
 python-dotenv>=1.0,<2.0  # optional: load .env variables
+python-multipart>=0.0.5,<0.1  # required for form-data parsing
