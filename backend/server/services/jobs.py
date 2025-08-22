@@ -60,7 +60,10 @@ def update(job_id: str, **fields):
         if k not in allowed:
             continue
         sets.append(f"{k} = ?")
-        params.append(v if k in {"result"} else (v or None))
+        if k == "result":
+            params.append(json.dumps(v))
+        else:
+            params.append(v or None)
     sets.append("updated_at = ?")
     params.append(datetime.utcnow().isoformat())
     params.append(job_id)
@@ -74,11 +77,12 @@ def get(job_id: str) -> Optional[Dict[str, Any]]:
         return None
     out = dict(row)
     # Parse JSON fields
-    if out.get("payload"):
-        try:
-            out["payload"] = json.loads(out["payload"])
-        except Exception:
-            pass
+    for field in ("payload", "result"):
+        if out.get(field):
+            try:
+                out[field] = json.loads(out[field])
+            except Exception:
+                pass
     return out
 
 def health() -> Dict[str, Any]:

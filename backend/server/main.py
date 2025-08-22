@@ -110,8 +110,8 @@ def _normalize_ref(ref: Optional[str], doi: Optional[str], url: Optional[str]) -
 # Health endpoints ------------------------------------------------------------
 @app.get("/healthz")
 def healthz():
-    ok, msg = jobs_store.healthcheck()
-    return {"ok": ok, "db": msg, "time": datetime.utcnow().isoformat() + "Z"}
+    status = jobs_store.health()
+    return {"ok": status.get("ok", False), "db": status.get("db_path"), "time": datetime.utcnow().isoformat() + "Z"}
 
 @app.get("/api/v1/version")
 def version():
