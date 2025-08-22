@@ -121,6 +121,10 @@ def version():
 @app.post("/api/v1/summarize")
 @app.post("/api/v1/summarise")  # UK spelling
 @app.post("/api/v1/summaries")
+# Root-level aliases for older frontends
+@app.post("/summarize")
+@app.post("/summarise")
+@app.post("/summaries")
 async def start_summary(
     background: BackgroundTasks,
     request: Request,
@@ -240,6 +244,7 @@ async def process_job(job_id: str, request_id: str):
 
 # Job polling endpoints ------------------------------------------------------
 @app.get("/api/v1/jobs/{job_id}")
+@app.get("/jobs/{job_id}")
 def get_job(job_id: str):
     j = jobs_store.get(job_id)
     if not j:
@@ -247,6 +252,7 @@ def get_job(job_id: str):
     return {"id": job_id, "status": j["status"], "payload": j.get("payload"), "error": j.get("error")}
 
 @app.get("/api/v1/summaries/{job_id}")
+@app.get("/summaries/{job_id}")
 def get_summary(job_id: str):
     j = jobs_store.get(job_id)
     if not j:
