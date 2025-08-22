@@ -1,8 +1,14 @@
+import logging
 import re
 from typing import Tuple, Dict, Any
+
 import httpx
 from bs4 import BeautifulSoup
+
 from .pdfio import extract_text_and_meta
+from . import errors as err
+
+logger = logging.getLogger(__name__)
 
 HEADERS = {"User-Agent": "LayScience/1.0 (+https://example.invalid)"}
 
@@ -22,21 +28,22 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
         url = f"https://doi.org/{ref}"
         meta["doi"] = ref
 
-    with httpx.Client(follow_redirects=True, headers=HEADERS, timeout=httpx.Timeout(20.0)) as client:
-        r = client.get(url)
-        r.raise_for_status()
-        ct = r.headers.get("content-type", "")
+    try:
+        with httpx.Client(follow_redirects=True, headers=HEADERS, timeout=httpx.Timeout(20.0)) as client:
+            r = client.get(url)
+            r.raise_for_status()
+            ct = r.headers.get("content-type", "")
         # If PDF directly
-        if "pdf" in ct.lower() or url.lower().endswith(".pdf"):
-            # Save to tmp and parse
-            import tempfile, os
-            fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
-            with os.fdopen(fd, "wb") as f:
-                f.write(r.content)
-            text, pmeta = extract_text_and_meta(tmp_path)
-            meta.update(pmeta)
-            meta["source"] = "fetched_pdf"
-            return text, meta
+            if "pdf" in ct.lower() or url.lower().endswith(".pdf"):
+                # Save to tmp and parse
+                import tempfile, os
+                fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(r.content)
+                text, pmeta = extract_text_and_meta(tmp_path)
+                meta.update(pmeta)
+                meta["source"] = "fetched_pdf"
+                return text, meta
 
         # Else HTML – try to resolve a PDF
         html = r.text
@@ -89,3 +96,19 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
         text = "\n\n".join(paragraphs[:15]).strip()
         meta["source"] = "html_text"
         return text, meta
+    except httpx.HTTPStatusError as e:
+        logger.warning("HTTP error fetching %s: %s", url, e.response.status_code)
+        raise err.UserFacingError(
+            code="fetch_http_error",
+            public_message=f"Could not fetch the paper (HTTP {e.response.status_code}).",
+            where="fetch_and_extract",
+            hint="Check the DOI/URL and try again.",
+        ) from e
+    except httpx.RequestError as e:
+        logger.warning("Request error fetching %s: %s", url, e)
+        raise err.UserFacingError(
+            code="fetch_failed",
+            public_message="Could not reach the paper URL/DOI.",
+            where="fetch_and_extract",
+            hint="Verify the link and your network connection.",
+        ) from e
