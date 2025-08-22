@@ -78,7 +78,7 @@ export default function Home() {
             </label>
             <input
               className="flex-1 bg-transparent text-neutral-200 placeholder:text-neutral-500 outline-none"
-              placeholder="Ask anything"
+              placeholder="Upload a paper or enter a DOI/URL"
               value={ref}
               onChange={(e) => setRef(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') onStart(); }}
