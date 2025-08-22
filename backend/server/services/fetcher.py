@@ -91,7 +91,6 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
             # Otherwise parse HTML
             html = r.text
             soup = BeautifulSoup(html, "html.parser")
-            base_url = final_url
 
             # Collect candidate PDF links from meta/link/a tags
             candidates: List[str] = []
@@ -135,7 +134,7 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
 
             # Try candidate PDFs
             for href in cleaned:
-                pdf_url = urljoin(base_url, href)  # both args are str
+                pdf_url = urljoin(str(r.url), href)
                 try:
                     pr = client.get(pdf_url)
                     if pr.status_code == 200 and "pdf" in (pr.headers.get("content-type", "").lower()):
