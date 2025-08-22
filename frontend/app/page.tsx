@@ -89,10 +89,7 @@ export default function Home() {
               onClick={onStart}
               disabled={busy}
             >
-              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                <path stroke="currentColor" strokeWidth="1.5" d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" />
-                <path stroke="currentColor" strokeWidth="1.5" d="M19.5 9v3a7.5 7.5 0 01-15 0V9m7.5 7.5V21" />
-              </svg>
+              Summrise
             </button>
           </div>
           {file && <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>}
