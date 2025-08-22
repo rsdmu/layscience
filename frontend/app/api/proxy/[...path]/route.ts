@@ -2,10 +2,12 @@ import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// If your account allows, give more time for large uploads
+export const maxDuration = 60;
 
 const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
 
-// Prefer server-only, fall back to NEXT_PUBLIC
+// Prefer server-only API_BASE, fall back to NEXT_PUBLIC for convenience
 const RAW_BASE =
   process.env.API_BASE ??
   process.env.NEXT_PUBLIC_API_BASE ??
@@ -24,7 +26,7 @@ const HOP_BY_HOP = [
   "content-length",
 ];
 
-function cleanHeaders(h: Headers) {
+function cleanReqHeaders(h: Headers) {
   const out = new Headers(h);
   for (const k of HOP_BY_HOP) out.delete(k);
   return out;
@@ -32,7 +34,7 @@ function cleanHeaders(h: Headers) {
 
 function makeUrl(base: string, segments: string[], search: string) {
   const path = "/" + (segments ?? []).map(s => encodeURIComponent(s)).join("/");
-  return new URL((path || "/") + (search || ""), base).toString();
+  return new URL(path + (search || ""), base).toString();
 }
 
 async function forwardOnce(
@@ -43,29 +45,42 @@ async function forwardOnce(
 ) {
   const needsBody = req.method !== "GET" && req.method !== "HEAD";
   const url = makeUrl(base, segments, req.nextUrl.search);
-  const res = await fetch(url, {
+
+  // Send to upstream
+  const upstream = await fetch(url, {
     method: req.method,
-    headers: cleanHeaders(req.headers),
+    headers: cleanReqHeaders(req.headers),
     body: needsBody ? bodyBuf : undefined,
     redirect: "follow",
     cache: "no-store",
   });
-  const outHeaders = new Headers(res.headers);
-  outHeaders.set("Access-Control-Allow-Origin", "*");
-  return new Response(res.body, { status: res.status, headers: outHeaders });
+
+  // ---- Buffer the response so we don't lose the body ----
+  const buf = await upstream.arrayBuffer();
+
+  // Build safe response headers
+  const out = new Headers(upstream.headers);
+  // We provide raw, decoded bytes here; remove conflicting encoding headers
+  out.delete("content-encoding");
+  out.delete("transfer-encoding");
+  // Set correct length (helps curl & some browsers)
+  out.set("content-length", String(buf.byteLength));
+  // CORS not strictly needed for same-origin proxy, harmless anyway:
+  out.set("Access-Control-Allow-Origin", "*");
+  // Optional: expose a debug header
+  out.set("x-proxy-target", url);
+
+  return new Response(buf, { status: upstream.status, headers: out });
 }
 
-async function handle(
-  req: NextRequest,
-  ctx: { params: { path?: string[] } }
-) {
+async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
   if (!RAW_BASE) {
     return new Response(
       JSON.stringify(
         {
           error: "API base not set",
           hint:
-            "Set API_BASE (preferred) or NEXT_PUBLIC_API_BASE to e.g. https://layscience.onrender.com",
+            "Set API_BASE (preferred) or NEXT_PUBLIC_API_BASE to your backend URL, e.g. https://layscience.onrender.com",
         },
         null,
         2
@@ -81,6 +96,7 @@ async function handle(
   try {
     return await forwardOnce(req, RAW_BASE, segments, bodyBuf);
   } catch (err: any) {
+    // Dev nicety: retry localhost with IPv4
     try {
       const u = new URL(RAW_BASE);
       if (u.hostname === "localhost") {
@@ -95,7 +111,7 @@ async function handle(
           message: String(err?.message || err),
           base: RAW_BASE,
           hint: RAW_BASE.includes("localhost")
-            ? "In prod, localhost is Vercel. Use your public backend URL."
+            ? "In prod, localhost points to Vercel. Use your public backend URL."
             : "Verify API_BASE and ALLOWED_ORIGINS on the backend.",
         },
         null,
