@@ -48,7 +48,12 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
-logger.addFilter(RequestIdFilter())
+# Apply the filter to our logger, root logger and uvicorn's loggers so that
+# log records without a ``request_id`` don't cause formatting errors.
+_request_id_filter = RequestIdFilter()
+logger.addFilter(_request_id_filter)
+logging.getLogger().addFilter(_request_id_filter)
+logging.getLogger("uvicorn").addFilter(_request_id_filter)
 
 # FastAPI app
 app = FastAPI(title="LayScience Summariser API", version="1.0.0")
