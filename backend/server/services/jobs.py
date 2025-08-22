@@ -7,15 +7,16 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 DB_PATH = os.getenv("JOBS_DB_PATH", "/app/data/jobs.sqlite3")
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-# If DB_PATH not writable (e.g., serverless), fall back to /tmp
+# Ensure DB directory exists and is writable; otherwise fall back to /tmp
 try:
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     with open(DB_PATH + ".touch", "w") as _f:
         _f.write("ok")
     os.remove(DB_PATH + ".touch")
 except Exception:
     DB_PATH = "/tmp/jobs.sqlite3"
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 _conn_lock = threading.Lock()
 
