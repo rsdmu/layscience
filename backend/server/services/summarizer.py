@@ -155,8 +155,8 @@ Extracted text (may be partial):
 
     client = OpenAI()
 
-    # Build Responses API input (not 'messages')
-    def _build_input() -> List[Dict[str, str]]:
+    # Build chat-style messages for the Responses API
+    def _build_messages() -> List[Dict[str, str]]:
         return [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": instruction},
@@ -176,7 +176,7 @@ Extracted text (may be partial):
                 logger.info("Calling OpenAI model=%s attempt=%d", model, attempt + 1)
                 response = client.responses.create(
                     model=model,
-                    input=_build_input(),
+                    messages=_build_messages(),
                     temperature=TEMPERATURE,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 )
