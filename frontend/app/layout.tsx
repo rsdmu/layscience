@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import ClientToaster from "@/components/ClientToaster";
 import { Bebas_Neue, Inter } from "next/font/google";
 
@@ -8,7 +8,12 @@ const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "Lay Science",
-  description: "AI that turns research into clear, engaging summaries."
+  description: "AI that turns research into clear, engaging summaries.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
