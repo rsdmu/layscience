@@ -3,13 +3,10 @@
 
 This backend provides a robust FastAPI service that accepts a DOI/URL **and/or** a PDF and returns a lay summary using **OpenAI GPT‑5** via the **Responses API**. It fixes:
 
-- **HTTP 500: `attempt to write a readonly database`** — now the DB path is configurable and defaults to a writable directory. The `/healthz` endpoint tells you if the DB is writable.
-- **HTTP 404: `Not Found` when pressing “summarise”** — we ship multiple route aliases (`/api/v1/summaries`, `/api/v1/summarize`, `/api/v1/summarise`, `/summaries`, `/summarize`, `/summarise`) to prevent path mismatches.
 - **State-of-the-art debugging** — every response includes an **`X-Request-ID`**; errors return structured JSON with `error`, `message`, `hint`, `where`, and `correlation_id`.
 
 ## Endpoints
 
-- `POST /api/v1/summaries` (aliases `/api/v1/summarize`, `/api/v1/summarise`, `/summaries`, `/summarize`, `/summarise`)
   - Content types:
     - **JSON:** `{ "ref": "<doi or url>", "length": "default|extended" }`
     - **multipart/form-data:** fields `ref|doi|url` (optional), `pdf` (optional), `length` (`default`|`extended`)
@@ -116,7 +113,7 @@ In your own code, prefer pinning to a dated snapshot for reproducibility.
 ## Troubleshooting
 
 - **500 `attempt to write a readonly database`**: Your SQLite file or parent directory isn’t writable. Fix by setting `JOBS_DB_PATH` to a writable location or mount a disk. Check `/healthz` output.
-- **404 `Not Found` when clicking “summarise”**: The frontend previously called a different route. We now expose `/api/v1/summaries` **and** legacy aliases (`/api/v1/summarize`, `/api/v1/summarise`, `/summaries`, `/summarize`, `/summarise`). Ensure the frontend points to one of these.
+
 - **CORS errors**: Set `ALLOWED_ORIGINS` to your frontend origin (comma-separated if multiple).
 - **OpenAI auth**: Ensure `OPENAI_API_KEY` is set in the backend environment.
 - **Long PDFs**: The server truncates extracted text to `MAX_SOURCE_CHARS` (default 120k). Override if needed.

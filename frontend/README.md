@@ -29,7 +29,7 @@ If you see a 404 or CORS error, verify:
 
 - The backend is running at `NEXT_PUBLIC_API_BASE`.
 - Backend `ALLOWED_ORIGINS` includes `http://localhost:3000`.
-- The proxy path matches backend (we support `/api/v1/summaries`, `/summarize`, `/summarise`).
+- The proxy path matches backend (`/api/v1/summaries` or `/summarize`; a legacy `/summarise` alias also exists).
 
 ## Deploy
 
