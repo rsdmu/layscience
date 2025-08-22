@@ -19,7 +19,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, UploadFile, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -155,12 +155,6 @@ def version():
 async def start_summary(
     background: BackgroundTasks,
     request: Request,
-    ref: Optional[str] = Form(default=None),
-    doi: Optional[str] = Form(default=None),
-    url: Optional[str] = Form(default=None),
-    length: str = Form(default="default"),
-    pdf: Optional[UploadFile] = File(default=None),
-    body: Optional[StartJobJSON] = None,
 ):
     """
     Start a summarisation job.
@@ -172,12 +166,24 @@ async def start_summary(
     """
     rid = getattr(request.state, "request_id", "-")
 
-    # If JSON body provided and no form fields, use body
-    if body and not (ref or doi or url or pdf):
+    content_type = request.headers.get("content-type", "")
+    ref = doi = url = None
+    length = "default"
+    pdf: Optional[UploadFile] = None
+
+    if content_type.startswith("application/json"):
+        data = await request.json()
+        body = StartJobJSON.model_validate(data)
         ref = body.ref
         length = body.length or length
+    else:
+        form = await request.form()
+        ref = form.get("ref")
+        doi = form.get("doi")
+        url = form.get("url")
+        length = form.get("length", length)
+        pdf = form.get("pdf")  # may be UploadFile or None
 
-    # Validate at least one input
     ref_value = _normalize_ref(ref, doi, url)
     if not ref_value and not pdf:
         raise err.BadRequest(
@@ -193,10 +199,15 @@ async def start_summary(
             where="start_summary",
         )
 
-    # Save uploaded PDF if provided
     saved_pdf_path: Optional[str] = None
     saved_pdf_name: Optional[str] = None
     if pdf is not None:
+        if not hasattr(pdf, "filename"):
+            raise err.BadRequest(
+                "invalid_file",
+                "Expected file upload for 'pdf'.",
+                where="start_summary",
+            )
         if not pdf.filename:
             raise err.BadRequest(
                 "invalid_file",
@@ -204,7 +215,6 @@ async def start_summary(
                 where="start_summary",
             )
         if not pdf.content_type or "pdf" not in pdf.content_type.lower():
-            # allow unknown type but enforce .pdf extension if present
             if not str(pdf.filename).lower().endswith(".pdf"):
                 raise err.BadRequest(
                     "invalid_file_type",
