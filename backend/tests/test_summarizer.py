@@ -21,9 +21,9 @@ def test_summarise_uses_messages(monkeypatch):
     monkeypatch.setattr(summarizer, 'OpenAI', FakeClient)
 
     summarizer.summarise('text', {}, 'default', system_prompt='sys')
-    assert 'messages' in calls['kwargs']
-    msgs = calls['kwargs']['messages']
-    assert msgs[0]['role'] == 'system'
-    assert msgs[0]['content'] == 'sys'
+    assert 'input' in calls['kwargs']
+    blocks = calls['kwargs']['input']
+    assert blocks[0]['role'] == 'system'
+    assert blocks[0]['content'] == 'sys'
 
     monkeypatch.setenv('DRY_RUN', '1')

@@ -71,108 +71,109 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
             r = client.get(url)
             r.raise_for_status()
 
-            final_url = str(r.url)  # httpx.URL -> str
-            ct = (r.headers.get("content-type") or "").lower()
+        final_url = str(r.url)  # httpx.URL -> str
+        ct = (r.headers.get("content-type") or "").lower()
 
-            # Direct PDF response
-            if "pdf" in ct or final_url.lower().endswith(".pdf"):
-                tmp_path = _save_pdf_bytes(r.content)
+        # Direct PDF response
+        if "pdf" in ct or final_url.lower().endswith(".pdf"):
+            tmp_path = _save_pdf_bytes(r.content)
+            try:
+                text, pmeta = extract_text_and_meta(tmp_path)
+            finally:
                 try:
-                    text, pmeta = extract_text_and_meta(tmp_path)
-                finally:
-                    try:
-                        os.remove(tmp_path)
-                    except Exception:
-                        pass
-                meta.update(pmeta)
-                meta["source"] = "fetched_pdf"
-                return text, meta
-
-            # Otherwise parse HTML
-            html = r.text
-            soup = BeautifulSoup(html, "html.parser")
-            base_url = final_url
-
-            # Collect candidate PDF links from meta/link/a tags
-            candidates: List[str] = []
-
-            # Common meta and link hints
-            for selector in [
-                ("meta", {"name": "citation_pdf_url"}),
-                ("meta", {"name": "dc.identifier.fulltext", "scheme": "dcterms.fulltext"}),
-                ("link", {"rel": True, "type": "application/pdf"}),
-            ]:
-                for el in soup.find_all(*selector):
-                    href = el.get("content") or el.get("href")
-                    if href:
-                        candidates.append(href)
-
-            # Anchor tags
-            for a in soup.find_all("a", href=True):
-                candidates.append(a["href"])
-
-            # Sanitise / filter candidates
-            seen = set()
-            cleaned: List[str] = []
-            for href in candidates:
-                # normalise type
-                if isinstance(href, bytes):
-                    try:
-                        href = href.decode("utf-8", "ignore")
-                    except Exception:
-                        continue
-                href = str(href).strip()
-                if not href or href in seen:
-                    continue
-                seen.add(href)
-                low = href.lower()
-                # skip non-navigational schemes
-                if low.startswith(("javascript:", "mailto:", "tel:", "data:")):
-                    continue
-                # prefer obvious PDF URLs
-                if low.endswith(".pdf") or "pdf" in low:
-                    cleaned.append(href)
-
-            # Try candidate PDFs
-            for href in cleaned:
-                pdf_url = urljoin(base_url, href)  # both args are str
-                try:
-                    pr = client.get(pdf_url)
-                    if pr.status_code == 200 and "pdf" in (pr.headers.get("content-type", "").lower()):
-                        tmp_path = _save_pdf_bytes(pr.content)
-                        try:
-                            text, pmeta = extract_text_and_meta(tmp_path)
-                        finally:
-                            try:
-                                os.remove(tmp_path)
-                            except Exception:
-                                pass
-                        meta.update(pmeta)
-                        meta["source"] = "resolved_pdf"
-                        meta["pdf_url"] = pdf_url
-                        return text, meta
-                except httpx.RequestError as e:
-                    logger.debug("PDF candidate fetch failed %s: %s", pdf_url, e)
-                    continue
-
-            # Fallbacks: meta description / og:description
-            title_el = soup.find("meta", {"name": "citation_title"}) or soup.find("title")
-            if title_el:
-                meta["title"] = title_el.get("content") if title_el.name == "meta" else title_el.text
-
-            desc_el = soup.find("meta", {"name": "description"}) or soup.find(
-                "meta", {"property": "og:description"}
-            )
-            if desc_el and (desc_el.get("content") or "").strip():
-                text = desc_el.get("content").strip()
-                meta["source"] = "html_meta"
-                return text, meta
-
-            # Final fallback: first paragraphs
-            paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p")]
-            text = "\n\n".join([p for p in paragraphs if p][:15]).strip()
-            meta["source"] = "html_text"
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
+            meta.update(pmeta)
+            meta["source"] = "fetched_pdf"
             return text, meta
+
+        # Otherwise parse HTML
+        html = r.text
+        soup = BeautifulSoup(html, "html.parser")
+        base_url = final_url
+
+        # Collect candidate PDF links from meta/link/a tags
+        candidates: List[str] = []
+
+        # Common meta and link hints
+        for selector in [
+            ("meta", {"name": "citation_pdf_url"}),
+            ("meta", {"name": "dc.identifier.fulltext", "scheme": "dcterms.fulltext"}),
+            ("link", {"rel": True, "type": "application/pdf"}),
+        ]:
+            for el in soup.find_all(*selector):
+                href = el.get("content") or el.get("href")
+                if href:
+                    candidates.append(href)
+
+        # Anchor tags
+        for a in soup.find_all("a", href=True):
+            candidates.append(a["href"])
+
+        # Sanitise / filter candidates
+        seen = set()
+        cleaned: List[str] = []
+        for href in candidates:
+            # normalise type
+            if isinstance(href, bytes):
+                try:
+                    href = href.decode("utf-8", "ignore")
+                except Exception:
+                    continue
+            href = str(href).strip()
+            if not href or href in seen:
+                continue
+            seen.add(href)
+            low = href.lower()
+            # skip non-navigational schemes
+            if low.startswith(("javascript:", "mailto:", "tel:", "data:")):
+                continue
+            # prefer obvious PDF URLs
+            if low.endswith(".pdf") or "pdf" in low:
+                cleaned.append(href)
+
+        # Try candidate PDFs
+        for href in cleaned:
+            pdf_url = urljoin(base_url, href)  # both args are str
+            try:
+                with httpx.Client(follow_redirects=True, headers=HEADERS, timeout=timeout) as client:
+                    pr = client.get(pdf_url)
+                if pr.status_code == 200 and "pdf" in (pr.headers.get("content-type", "").lower()):
+                    tmp_path = _save_pdf_bytes(pr.content)
+                    try:
+                        text, pmeta = extract_text_and_meta(tmp_path)
+                    finally:
+                        try:
+                            os.remove(tmp_path)
+                        except Exception:
+                            pass
+                    meta.update(pmeta)
+                    meta["source"] = "resolved_pdf"
+                    meta["pdf_url"] = pdf_url
+                    return text, meta
+            except httpx.RequestError as e:
+                logger.debug("PDF candidate fetch failed %s: %s", pdf_url, e)
+                continue
+
+        # Fallbacks: meta description / og:description
+        title_el = soup.find("meta", {"name": "citation_title"}) or soup.find("title")
+        if title_el:
+            meta["title"] = title_el.get("content") if title_el.name == "meta" else title_el.text
+
+        desc_el = soup.find("meta", {"name": "description"}) or soup.find(
+            "meta", {"property": "og:description"}
+        )
+        if desc_el and (desc_el.get("content") or "").strip():
+            text = desc_el.get("content").strip()
+            meta["source"] = "html_meta"
+            return text, meta
+
+        # Final fallback: first paragraphs
+        paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p")]
+        text = "\n\n".join([p for p in paragraphs if p][:15]).strip()
+        meta["source"] = "html_text"
+        return text, meta
 
     except httpx.HTTPStatusError as e:
         logger.warning("HTTP error fetching %s: %s", url, e.response.status_code)
