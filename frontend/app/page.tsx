@@ -89,7 +89,7 @@ export default function Home() {
               onClick={onStart}
               disabled={busy}
             >
-              Summrise
+              Summarize
             </button>
           </div>
           {file && <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>}
