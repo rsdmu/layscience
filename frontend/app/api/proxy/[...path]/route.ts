@@ -1,5 +1,8 @@
 // app/api/proxy/[...path]/route.ts
-const RAW_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+const DEFAULT_BASE = "http://127.0.0.1:8000";
+const RAW_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  (process.env.NODE_ENV === "development" ? DEFAULT_BASE : "");
 
 function joinUrl(base: string, path: string) {
   const b = new URL(base);
@@ -34,6 +37,23 @@ async function forwardOnce(req: Request, base: string, segments: string[], buf?:
 }
 
 async function handle(req: Request, { params }: { params: { path?: string[] } }) {
+  if (!RAW_BASE) {
+    return new Response(
+      JSON.stringify(
+        {
+          error: "NEXT_PUBLIC_API_BASE is not set",
+          hint: "Set NEXT_PUBLIC_API_BASE to your backend URL"
+        },
+        null,
+        2
+      ),
+      {
+        status: 500,
+        headers: { "content-type": "application/json" }
+      }
+    );
+  }
+
   const segments = params.path || [];
   let buf: ArrayBuffer | undefined;
 
