@@ -17,7 +17,7 @@ client = TestClient(main.app)
 
 
 def test_start_summary_missing_input():
-    resp = client.post('/api/v1/summarize', data={})
+    resp = client.post('/api/v1/summaries', json={})
     assert resp.status_code == 400
     body = resp.json()
     assert body['error'] == 'missing_input'
@@ -28,7 +28,7 @@ def test_pdf_upload_summary(monkeypatch):
         return 'PDF content about biology.', {'title': 'Bio Paper', 'authors': 'A'}
     monkeypatch.setattr(pdfio, 'extract_text_and_meta', fake_extract)
     files = {'pdf': ('paper.pdf', b'fake', 'application/pdf')}
-    resp = client.post('/api/v1/summarize', files=files)
+    resp = client.post('/api/v1/summaries', files=files)
     assert resp.status_code == 200
     job_id = resp.json()['id']
     for _ in range(20):
@@ -45,7 +45,7 @@ def test_ref_summary(monkeypatch):
     def fake_fetch(ref: str):
         return 'Text from web about physics.', {'title': 'Phys Paper', 'authors': 'B'}
     monkeypatch.setattr(fetcher, 'fetch_and_extract', fake_fetch)
-    resp = client.post('/api/v1/summarize', data={'ref': 'https://example.com/paper'})
+    resp = client.post('/api/v1/summaries', json={'ref': 'https://example.com/paper'})
     assert resp.status_code == 200
     job_id = resp.json()['id']
     for _ in range(20):
