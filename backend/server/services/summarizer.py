@@ -1,24 +1,29 @@
 """OpenAI summarisation helper.
 
-This module constructs a system prompt that instructs GPT‑5 to produce a
-clear, jargon‑light lay summary of a scientific paper.  The ``summarise``
-function builds the input payload for the OpenAI Responses API and extracts
-the markdown summary from the response.  It supports a "dry run" mode where
-mock text is returned without calling the API.
+Constructs a system prompt and calls the OpenAI Responses API to produce a
+jargon‑light lay summary. Includes retries, model fallback, and better error
+hints. Supports DRY_RUN=1 for offline testing.
 """
 
 import logging
 import os
-from typing import Dict, Any
+import time
+from typing import Dict, Any, List, Optional
 
 from openai import OpenAI
 
 from . import errors as err
 
-
+# Primary + fallback models come from env
 MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-5")
-logger = logging.getLogger(__name__)
+FALLBACK_MODEL = os.getenv("OPENAI_FALLBACK_MODEL", "gpt-4o-mini")
 
+# Tunables
+MAX_SOURCE_CHARS = int(os.getenv("MAX_SOURCE_CHARS", "120000"))
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "900"))
+TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.2"))
+
+logger = logging.getLogger(__name__)
 
 # System prompt guiding the model to produce lay summaries
 LAY_SUMMARY_SYSTEM_PROMPT = (
@@ -88,40 +93,39 @@ LAY_SUMMARY_SYSTEM_PROMPT = (
 )
 
 
-def summarise(text: str, meta: Dict[str, Any], length: str, system_prompt: str = LAY_SUMMARY_SYSTEM_PROMPT) -> str:
-    """
-    Produce a lay summary using OpenAI’s Responses API.
+def _error_hint(exc: Exception) -> str:
+    """Best-effort classification → human-friendly hint."""
+    name = exc.__class__.__name__
+    msg = str(exc)
+    status = getattr(exc, "status_code", None)
 
-    Parameters
-    ----------
-    text : str
-        The extracted text from the paper (possibly truncated).
-    meta : Dict[str, Any]
-        Metadata such as title, authors, venue and DOI/URL.
-    length : str
-        "default" or "extended"; controls the number of paragraphs.
-    system_prompt : str
-        The system prompt to steer the model.
+    if status in (401, 403) or "Authentication" in name:
+        return "OpenAI auth/entitlement issue. Verify OPENAI_API_KEY and that the model is available to your account."
+    if status == 429 or "RateLimit" in name:
+        return "Rate limited by OpenAI. Retry with backoff or reduce concurrency."
+    if status in (400, 413) or "context length" in msg.lower() or "too large" in msg.lower():
+        return "Payload too large. Lower MAX_SOURCE_CHARS or use a shorter source (e.g., abstract page)."
+    return "Transient network/service error. Retry later or check Render logs for details."
 
-    Returns
-    -------
-    str
-        A Markdown summary returned by the model.  In dry run mode this is
-        synthetic text for offline testing.
-    """
-    # Compose metadata
+
+def summarise(text: str, meta: Dict[str, Any], length: str,
+              system_prompt: str = LAY_SUMMARY_SYSTEM_PROMPT) -> str:
+    """Produce a lay summary using OpenAI’s Responses API."""
     title = meta.get("title") or "(unknown title)"
     doi = meta.get("doi") or meta.get("pdf_url") or meta.get("input") or meta.get("source_path") or ""
     authors = meta.get("authors") or "(unknown authors)"
     venue = meta.get("venue") or meta.get("journal") or "(unknown venue)"
     year = meta.get("year") or ""
 
-    # Build instruction and user block
     length_flag = "Default" if length == "default" else "Extended"
-    instruction = f"Please produce a {length_flag} lay summary. If you only have partial text, say so briefly. Output in Markdown exactly as specified."
-    # Limit the amount of text sent to the model
-    max_chars = int(os.getenv("MAX_SOURCE_CHARS", "120000"))
-    use_text = text[:max_chars]
+    instruction = (
+        f"Please produce a {length_flag} lay summary. If you only have partial text, "
+        f"say so briefly. Output in Markdown exactly as specified."
+    )
+
+    # Trim large sources defensively
+    use_text = (text or "")[:MAX_SOURCE_CHARS]
+    logger.debug("Summariser: using %d chars of source (max=%d)", len(use_text), MAX_SOURCE_CHARS)
 
     user_block = f"""
 Source metadata (best‑effort):
@@ -136,52 +140,86 @@ Extracted text (may be partial):
 ---
 """
 
-    # Offline mode
+    # Offline mock
     if os.getenv("DRY_RUN") == "1":
-        return f"""Title: {title}
-Authors: {authors}
-Venue/Year: {venue}, {year}
-Link/DOI: {doi}
-
-**Lay Summary — {length_flag}**
-Problem: Example problem statement (mock).\n
-Solution: Example solution summary (mock).\n
-Impact: Example impact summary and at least one limitation (mock).\n"""
+        return (
+            f"Title: {title}\n"
+            f"Authors: {authors}\n"
+            f"Venue/Year: {venue}, {year}\n"
+            f"Link/DOI: {doi}\n\n"
+            f"**Lay Summary — {length_flag}**\n"
+            f"Problem: Example problem statement (mock).\n\n"
+            f"Solution: Example solution summary (mock).\n\n"
+            f"Impact: Example impact summary and at least one limitation (mock).\n"
+        )
 
     client = OpenAI()
-    try:
-        # Build the message list for the Responses API.  Using ``messages``
-        # rather than ``input`` matches the structure recommended in the
-        # latest OpenAI docs and ensures the system prompt is preserved.
-        resp = client.responses.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": instruction},
-                {"role": "user", "content": user_block},
-            ],
-        )
-    except Exception as e:  # pragma: no cover - network/LLM issues
-        logger.error("OpenAI request failed: %s", e)
+
+    # Build Responses API input (not 'messages')
+    def _build_input() -> List[Dict[str, str]]:
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": instruction},
+            {"role": "user", "content": user_block},
+        ]
+
+    models_to_try: List[str] = [MODEL_NAME]
+    if FALLBACK_MODEL and FALLBACK_MODEL != MODEL_NAME:
+        models_to_try.append(FALLBACK_MODEL)
+
+    last_exc: Optional[Exception] = None
+    response = None
+
+    for model in models_to_try:
+        for attempt in range(3):
+            try:
+                logger.info("Calling OpenAI model=%s attempt=%d", model, attempt + 1)
+                response = client.responses.create(
+                    model=model,
+                    input=_build_input(),
+                    temperature=TEMPERATURE,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                )
+                last_exc = None
+                break
+            except Exception as e:  # network/auth/rate-limit/size/etc.
+                last_exc = e
+                # If the model looks invalid, try the next model immediately
+                msg = str(e).lower()
+                invalid_model = ("model" in msg and "not found" in msg) or ("unsupported" in msg)
+                if invalid_model and model != models_to_try[-1]:
+                    logger.warning("Model '%s' rejected request; trying fallback. Error: %s", model, e)
+                    break
+                # backoff and retry
+                delay = 1.5 * (attempt + 1)
+                logger.warning("OpenAI call failed (attempt %d): %s; retrying in %.1fs", attempt + 1, e, delay)
+                time.sleep(delay)
+        if response is not None:
+            break
+
+    if last_exc is not None:
+        hint = _error_hint(last_exc)
+        logger.error("OpenAI request failed after retries: %s", last_exc)
         raise err.UserFacingError(
             code="llm_error",
             public_message="Failed to generate summary.",
             where="summarise",
-            hint="Try again later.",
-        ) from e
+            hint=hint,
+        ) from last_exc
 
     # Extract text output
     try:
-        return resp.output_text  # new SDK helper
+        return response.output_text  # SDK convenience
     except Exception:
         # Fallback to first text part
         try:
-            for item in resp.output:
-                if item.type == "message":
-                    for t in item.content:
-                        if t.type == "output_text":
-                            return t.text
+            for item in getattr(response, "output", []):
+                if getattr(item, "type", None) == "message":
+                    for t in getattr(item, "content", []):
+                        if getattr(t, "type", None) == "output_text":
+                            return getattr(t, "text", "")
         except Exception:
             pass
-    # Ultimate fallback: string representation
-    return str(resp)
+
+    # Ultimate fallback
+    return str(response)
