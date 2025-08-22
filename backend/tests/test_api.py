@@ -56,3 +56,22 @@ def test_ref_summary(monkeypatch):
     data = res.json()
     assert data['status'] == 'done'
     assert 'Lay Summary' in data['payload']['summary']
+
+
+def test_singular_summary_route(monkeypatch):
+    """Ensure /api/v1/summary/{id} works as an alias."""
+    def fake_extract(path: str):
+        return 'PDF content about chemistry.', {'title': 'Chem Paper', 'authors': 'C'}
+    monkeypatch.setattr(pdfio, 'extract_text_and_meta', fake_extract)
+    files = {'pdf': ('paper.pdf', b'fake', 'application/pdf')}
+    resp = client.post('/api/v1/summary', files=files)
+    assert resp.status_code == 200
+    job_id = resp.json()['id']
+    for _ in range(20):
+        res = client.get(f'/api/v1/summary/{job_id}')
+        if res.json()['status'] == 'done':
+            break
+        time.sleep(0.1)
+    data = res.json()
+    assert data['status'] == 'done'
+    assert 'Lay Summary' in data['payload']['summary']

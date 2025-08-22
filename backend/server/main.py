@@ -118,13 +118,16 @@ def version():
     return {"name": "layscience-backend", "version": "1.1.0"}
 
 # Backwards-compat aliases to avoid 404s ------------------------------------
+# Support both plural and singular forms
 @app.post("/api/v1/summarize")
 @app.post("/api/v1/summarise")  # UK spelling
 @app.post("/api/v1/summaries")
+@app.post("/api/v1/summary")
 # Root-level aliases for older frontends
 @app.post("/summarize")
 @app.post("/summarise")
 @app.post("/summaries")
+@app.post("/summary")
 async def start_summary(
     background: BackgroundTasks,
     request: Request,
@@ -252,7 +255,9 @@ def get_job(job_id: str):
     return {"id": job_id, "status": j["status"], "payload": j.get("payload"), "error": j.get("error")}
 
 @app.get("/api/v1/summaries/{job_id}")
+@app.get("/api/v1/summary/{job_id}")
 @app.get("/summaries/{job_id}")
+@app.get("/summary/{job_id}")
 def get_summary(job_id: str):
     j = jobs_store.get(job_id)
     if not j:
