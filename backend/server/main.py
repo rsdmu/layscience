@@ -35,28 +35,23 @@ from .services import storage, summarizer, pdfio, fetcher, errors as err
 # ----------------------------------------------------------------------------
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(
-    level=LOG_LEVEL,
-    format="%(asctime)s %(levelname)s %(name)s [%(request_id)s] %(message)s",
-)
-logger = logging.getLogger("layscience")
 
 
-class RequestIdFilter(logging.Filter):
-    """Ensure all log records have a request_id attribute."""
+class RequestIdFormatter(logging.Formatter):
+    """Formatter that injects a default request_id if missing."""
 
-    def filter(self, record: logging.LogRecord) -> bool:
+    def format(self, record: logging.LogRecord) -> str:
         if not hasattr(record, "request_id"):
             record.request_id = "-"
-        return True
+        return super().format(record)
 
 
-# Apply the filter to our logger, root logger and uvicorn's loggers so that
-# log records without a ``request_id`` don't cause formatting errors.
-_request_id_filter = RequestIdFilter()
-logger.addFilter(_request_id_filter)
-logging.getLogger().addFilter(_request_id_filter)
-logging.getLogger("uvicorn").addFilter(_request_id_filter)
+_handler = logging.StreamHandler()
+_handler.setFormatter(
+    RequestIdFormatter("%(asctime)s %(levelname)s %(name)s [%(request_id)s] %(message)s")
+)
+logging.basicConfig(level=LOG_LEVEL, handlers=[_handler])
+logger = logging.getLogger("layscience")
 
 # FastAPI app
 app = FastAPI(title="LayScience Summariser API", version="1.0.0")
