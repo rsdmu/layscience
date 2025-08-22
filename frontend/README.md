@@ -3,6 +3,16 @@
 
 Next.js 14 app that talks to the backend through an **edge proxy** at `/api/proxy/...`.
 
+## Environment variables
+
+Only the backend needs the OpenAI credentials. The frontend requires a single variable:
+
+| Name | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_API_BASE` | Base URL of the backend API. Must be set in production deployments. |
+
+If `NEXT_PUBLIC_API_BASE` is missing in production, the proxy route will respond with a helpful error instead of silently falling back to `127.0.0.1`.
+
 ## Local dev
 
 ```bash

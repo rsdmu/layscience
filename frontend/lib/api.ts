@@ -1,8 +1,12 @@
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+const DEFAULT_BASE = "http://127.0.0.1:8000";
+const BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  (process.env.NODE_ENV === "development" ? DEFAULT_BASE : "");
 
 function api(path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
   if (typeof window !== "undefined") return `/api/proxy${p}`;
+  if (!BASE) throw new Error("NEXT_PUBLIC_API_BASE is not set");
   return `${BASE}${p}`;
 }
 
