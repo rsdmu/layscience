@@ -73,3 +73,35 @@ export async function getSummary(id: string) {
   const res = await fetch(api(`/api/v1/summaries/${id}`), { cache: "no-store" });
   return asJson(res);
 }
+
+export async function registerAccount({
+  username,
+  email,
+}: {
+  username: string;
+  email: string;
+}) {
+  const res = await fetch(api("/api/v1/register"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username, email }),
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function verifyCode({
+  email,
+  code,
+}: {
+  email: string;
+  code: string;
+}) {
+  const res = await fetch(api("/api/v1/verify"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, code }),
+    cache: "no-store",
+  });
+  return asJson(res);
+}

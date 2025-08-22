@@ -15,6 +15,9 @@ import time
 import json
 import logging
 import traceback
+import random
+import smtplib
+from email.message import EmailMessage
 from typing import Optional, Dict, Any
 from datetime import datetime
 from typing import Literal
@@ -57,6 +60,31 @@ logging.getLogger("uvicorn").addFilter(_request_id_filter)
 
 # FastAPI app
 app = FastAPI(title="LayScience Summariser API", version="1.0.0")
+
+# In-memory stores for demo account registration
+accounts: Dict[str, Dict[str, Any]] = {}
+pending_codes: Dict[str, Dict[str, Any]] = {}
+
+
+def _send_verification_email(to: str, code: str) -> None:
+    host = os.getenv("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT", "0") or 0)
+    user = os.getenv("SMTP_USER")
+    password = os.getenv("SMTP_PASS")
+    msg = EmailMessage()
+    msg["Subject"] = "LayScience verification code"
+    msg["From"] = user or "no-reply@layscience"
+    msg["To"] = to
+    msg.set_content(f"Your verification code is {code}")
+    if host and port:
+        with smtplib.SMTP(host, port) as server:
+            if os.getenv("SMTP_TLS") == "1":
+                server.starttls()
+            if user and password:
+                server.login(user, password)
+            server.send_message(msg)
+    else:  # pragma: no cover
+        logger.info(f"Verification code for {to}: {code}")
 
 # CORS -----------------------------------------------------------------------
 ALLOWED = os.getenv("ALLOWED_ORIGINS", "*")
@@ -143,6 +171,34 @@ def healthz():
 def version():
     """Return API name and version."""
     return {"name": "layscience-backend", "version": "1.0.0"}
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+
+
+class VerifyRequest(BaseModel):
+    email: str
+    code: str
+
+
+@app.post("/api/v1/register")
+def register(req: RegisterRequest):
+    code = f"{random.randint(0, 999999):06d}"
+    pending_codes[req.email] = {"code": code, "username": req.username}
+    _send_verification_email(req.email, code)
+    return {"ok": True}
+
+
+@app.post("/api/v1/verify")
+def verify(req: VerifyRequest):
+    record = pending_codes.get(req.email)
+    if not record or record.get("code") != req.code:
+        raise HTTPException(status_code=400, detail="Invalid code")
+    accounts[req.email] = {"username": record.get("username")}
+    pending_codes.pop(req.email, None)
+    return {"ok": True}
 
 
 @app.post(

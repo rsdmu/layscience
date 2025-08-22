@@ -9,6 +9,7 @@ const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 export const metadata: Metadata = {
   title: "Lay Science",
   description: "AI that turns research into clear, engaging summaries.",
+  icons: { icon: "/icon.png" },
 };
 
 export const viewport: Viewport = {
