@@ -24,6 +24,8 @@ const HOP_BY_HOP = [
   "upgrade",
   "host",
   "content-length",
+  // Strip origin so backend CORS rules don't see the browser origin
+  "origin",
 ];
 
 function cleanReqHeaders(h: Headers) {
