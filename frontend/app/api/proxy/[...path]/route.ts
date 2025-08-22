@@ -1,12 +1,15 @@
-// app/api/proxy/[...path]/route.ts
 import type { NextRequest } from "next/server";
 
 // Force Node runtime; safer for multipart/form-data pass-through
 export const runtime = "nodejs";
+// Disable static caching
+export const dynamic = "force-dynamic";
+// Give longer time window if needed (Vercel Pro/Enterprise)
+export const maxDuration = 60;
 
 const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
 
-// Prefer server-only env; fall back to NEXT_PUBLIC for convenience
+// Prefer server-only env; fall back to public if you really need
 const RAW_BASE =
   process.env.API_BASE ??
   process.env.NEXT_PUBLIC_API_BASE ??
@@ -34,8 +37,25 @@ function sanitizeHeaders(src: Headers) {
 function buildUpstreamUrl(base: string, req: NextRequest, segments: string[]) {
   const rel = (segments ?? []).join("/");
   const qs = req.nextUrl.search ?? "";
-  const noLeading = rel.replace(/^\/+/, "");
-  return new URL(noLeading + qs, base).toString();
+  const path = rel.replace(/^\/+/, "");
+  return new URL(path + qs, base).toString();
+}
+
+async function forwardOnce(req: NextRequest, base: string, bodyBuf?: ArrayBuffer) {
+  const needsBody = req.method !== "GET" && req.method !== "HEAD";
+  const url = buildUpstreamUrl(base, req, (req as any).params?.path ?? []);
+  const res = await fetch(url, {
+    method: req.method,
+    headers: sanitizeHeaders(req.headers),
+    body: needsBody ? bodyBuf : undefined,
+    redirect: "follow",
+    cache: "no-store",
+  });
+
+  const outHeaders = new Headers(res.headers);
+  // Same-origin so not strictly required; harmless
+  outHeaders.set("Access-Control-Allow-Origin", "*");
+  return new Response(res.body, { status: res.status, headers: outHeaders });
 }
 
 async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
@@ -44,8 +64,7 @@ async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
       JSON.stringify(
         {
           error: "API base is not set",
-          hint:
-            "Set API_BASE (preferred) or NEXT_PUBLIC_API_BASE to your backend URL e.g. https://layscience.onrender.com",
+          hint: "Set API_BASE (preferred) or NEXT_PUBLIC_API_BASE to your backend URL (e.g. https://layscience.onrender.com)",
         },
         null,
         2
@@ -54,47 +73,21 @@ async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
     );
   }
 
-  const segments = ctx.params.path ?? [];
   const needsBody = req.method !== "GET" && req.method !== "HEAD";
-
-  // Read request body once so we can retry without losing the stream.
-  // (NOTE: For very large PDFs this buffers in memory; direct calls to backend
-  // are better for huge files.)
-  let bodyBuf: ArrayBuffer | undefined;
-  if (needsBody) {
-    bodyBuf = await req.arrayBuffer();
-  }
-
-  const forward = async (base: string) => {
-    const url = buildUpstreamUrl(base, req, segments);
-    const res = await fetch(url, {
-      method: req.method,
-      headers: sanitizeHeaders(req.headers),
-      body: needsBody ? bodyBuf : undefined,
-      redirect: "follow",
-      cache: "no-store",
-    });
-
-    const outHeaders = new Headers(res.headers);
-    // Not strictly required (same origin), but harmless:
-    outHeaders.set("Access-Control-Allow-Origin", "*");
-
-    return new Response(res.body, { status: res.status, headers: outHeaders });
-  };
+  // Read once so we can retry without losing the stream
+  const bodyBuf = needsBody ? await req.arrayBuffer() : undefined;
 
   try {
-    return await forward(RAW_BASE);
+    return await forwardOnce(req, RAW_BASE, bodyBuf);
   } catch (err: any) {
-    // Dev nicety: if someone set localhost, retry with 127.0.0.1
+    // Dev nicety
     try {
       const u = new URL(RAW_BASE);
       if (u.hostname === "localhost") {
         u.hostname = "127.0.0.1";
-        return await forward(u.toString());
+        return await forwardOnce(req, u.toString(), bodyBuf);
       }
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     return new Response(
       JSON.stringify(
         {
@@ -103,7 +96,7 @@ async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
           base: RAW_BASE,
           hint: RAW_BASE.includes("localhost")
             ? "In prod, localhost points to Vercel, not your machine. Use a public URL like https://layscience.onrender.com"
-            : "Ensure API_BASE is correct and backend allows your origin in ALLOWED_ORIGINS.",
+            : "Check API_BASE and that your backend ALLOWED_ORIGINS includes your frontend origin.",
         },
         null,
         2

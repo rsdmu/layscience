@@ -1,35 +1,24 @@
 // frontend/lib/api.ts
 
-// ---- Base resolution ---------------------------------------------------------
 const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
 
-// If you prefer a Vercel proxy (Option B), set NEXT_PUBLIC_USE_PROXY=1
+// If running on Vercel or you want to force proxy, USE_PROXY=true
 const USE_PROXY =
-  typeof process !== "undefined" &&
+  (typeof process !== "undefined" && !!process.env.VERCEL) ||
   process.env.NEXT_PUBLIC_USE_PROXY === "1";
 
-// For direct calls (Option A), set NEXT_PUBLIC_API_BASE to your Render URL
-// e.g. NEXT_PUBLIC_API_BASE=https://layscience.onrender.com
-const BASE =
+// Fallback base for dev only. In prod with proxy, we’ll use relative /api/proxy.
+const DIRECT_BASE =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
   (process.env.NODE_ENV === "development" ? DEFAULT_DEV_BASE : "");
 
 function api(path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
-
-  // Option B: proxy only for browser requests (prevents CORS issues),
-  // you must implement /api/proxy on Vercel if you enable this.
-  if (USE_PROXY && typeof window !== "undefined") return `/api/proxy${p}`;
-
-  if (!BASE) {
-    throw new Error(
-      "API base URL is not set. Define NEXT_PUBLIC_API_BASE (Render URL) or run in development."
-    );
-  }
-  return `${BASE}${p}`;
+  if (USE_PROXY) return `/api/proxy${p}`; // Same-origin to Vercel route
+  if (!DIRECT_BASE) throw new Error("API base not set. Define NEXT_PUBLIC_API_BASE or enable the proxy.");
+  return `${DIRECT_BASE}${p}`;
 }
 
-// ---- Helpers ----------------------------------------------------------------
 async function asJson(res: Response) {
   const ct = res.headers.get("content-type") || "";
   const isJson = ct.includes("application/json");
@@ -40,8 +29,6 @@ async function asJson(res: Response) {
   }
   return isJson ? res.json() : res.text();
 }
-
-// ---- API calls ---------------------------------------------------------------
 
 type LengthOpt = "default" | "extended";
 
@@ -54,17 +41,15 @@ export async function startJob({
   file?: File | null;
   length?: LengthOpt;
 }) {
-  // If a file is provided -> multipart; otherwise JSON
+  // If file provided -> multipart; else JSON
   if (file) {
     const fd = new FormData();
     if (ref) fd.set("ref", ref);
-    if (length) fd.set("length", length);
-    // include filename to help server-side diagnostics
-    fd.set("pdf", file, file.name);
-
+    fd.set("length", length);
+    fd.set("pdf", file, file.name); // important: include filename
     const res = await fetch(api("/api/v1/summaries"), {
       method: "POST",
-      body: fd, // do NOT set Content-Type; the browser will set multipart boundary
+      body: fd, // do NOT set Content-Type manually
       cache: "no-store",
     });
     return asJson(res);
