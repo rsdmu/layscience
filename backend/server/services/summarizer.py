@@ -150,10 +150,12 @@ Impact: Example impact summary and at least one limitation (mock).\n"""
 
     client = OpenAI()
     try:
-        # Build the input messages for the Responses API
+        # Build the message list for the Responses API.  Using ``messages``
+        # rather than ``input`` matches the structure recommended in the
+        # latest OpenAI docs and ensures the system prompt is preserved.
         resp = client.responses.create(
             model=MODEL_NAME,
-            input=[
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": instruction},
                 {"role": "user", "content": user_block},

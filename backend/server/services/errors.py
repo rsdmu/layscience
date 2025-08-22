@@ -39,3 +39,4 @@ class NotFound(UserFacingError):
 
     def __init__(self, public_message: str, where: str, hint: Optional[str] = None) -> None:
         super().__init__(code="not_found", public_message=public_message, where=where, status_code=404, hint=hint)
+
