@@ -1,3 +1,10 @@
+"""SQLite‑based job persistence for the LayScience backend.
+
+Jobs have an ``id``, ``status``, ``payload``, ``result`` and optional error
+fields.  The job store uses a single SQLite database with WAL mode to allow
+concurrent reads and writes.  All operations are thread‑safe thanks to a
+global lock.
+"""
 
 import os
 import sqlite3
@@ -6,11 +13,14 @@ import threading
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-DB_PATH = os.getenv("JOBS_DB_PATH", "/app/data/jobs.sqlite3")
 
-# Ensure DB directory exists and is writable; otherwise fall back to /tmp
+# Determine DB path and ensure parent directory is writable
+DB_PATH = os.getenv("JOBS_DB_PATH", os.path.join(os.getenv("DATA_DIR", "data"), "jobs.sqlite3"))
+
+# Ensure DB directory exists and is writable; fallback to /tmp if not
 try:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    # test write permission
     with open(DB_PATH + ".touch", "w") as _f:
         _f.write("ok")
     os.remove(DB_PATH + ".touch")
@@ -18,7 +28,9 @@ except Exception:
     DB_PATH = "/tmp/jobs.sqlite3"
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
+# global connection and lock
 _conn_lock = threading.Lock()
+
 
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False, isolation_level=None)
@@ -41,9 +53,12 @@ def _connect() -> sqlite3.Connection:
         )
     return conn
 
+
 _conn = _connect()
 
-def create(job_id: str, status: str, payload: Dict[str, Any]):
+
+def create(job_id: str, status: str, payload: Dict[str, Any]) -> None:
+    """Insert a new job into the database."""
     now = datetime.utcnow().isoformat()
     with _conn_lock, _conn:
         _conn.execute(
@@ -51,10 +66,19 @@ def create(job_id: str, status: str, payload: Dict[str, Any]):
             (job_id, status, json.dumps(payload), now, now),
         )
 
-def update(job_id: str, **fields):
+
+def update(job_id: str, **fields: Any) -> None:
+    """Update selected fields of a job."""
     if not fields:
         return
-    allowed = {"status", "result", "error_code", "error_message", "error_where", "error_hint"}
+    allowed = {
+        "status",
+        "result",
+        "error_code",
+        "error_message",
+        "error_where",
+        "error_hint",
+    }
     sets = []
     params = []
     for k, v in fields.items():
@@ -71,13 +95,14 @@ def update(job_id: str, **fields):
     with _conn_lock, _conn:
         _conn.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", params)
 
+
 def get(job_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch a job record by ID and deserialise JSON fields."""
     cur = _conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
     row = cur.fetchone()
     if not row:
         return None
     out = dict(row)
-    # Parse JSON fields
     for field in ("payload", "result"):
         if out.get(field):
             try:
@@ -86,7 +111,9 @@ def get(job_id: str) -> Optional[Dict[str, Any]]:
                 pass
     return out
 
+
 def health() -> Dict[str, Any]:
+    """Return a dictionary with DB health information."""
     ok = True
     try:
         with _conn_lock, _conn:
