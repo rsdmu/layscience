@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -6,27 +5,26 @@ import toast from "react-hot-toast";
 import { startJob, getJob, getSummary } from "@/lib/api";
 
 export default function Home() {
-  const [ref, setRef] = useState(""); // DOI or URL
+  const [ref, setRef] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [length, setLength] = useState<"default" | "extended">("default");
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "queued" | "running" | "done" | "failed">("idle");
-  const [summary, setSummary] = useState<string>("");
+  const [summary, setSummary] = useState("");
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function reset() {
     setJobId(null);
     setStatus("idle");
-    setSummary(""); 
+    setSummary("");
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }
 
   async function onStart() {
     try {
       setBusy(true);
-      setSummary(""); 
-      const res = await startJob({ ref: ref || undefined, file, length });
+      reset();
+      const res = await startJob({ ref: ref || undefined, file, length: "default" });
       setJobId(res.id);
       setStatus("queued");
       toast.success("Job started");
@@ -61,70 +59,57 @@ export default function Home() {
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   return (
-    <main className="min-h-dvh bg-neutral-950 text-neutral-100">
-      <section className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="text-3xl font-bold mb-4">LayScience</h1>
-        <p className="text-neutral-400 mb-6">Enter a DOI or URL, or upload a PDF. Choose Default (≈200 words) or Extended (≈350 words).</p>
-
-        <div className="rounded-2xl border border-white/10 bg-neutral-900/50 p-5 space-y-4">
-          <div className="space-y-1">
-            <label className="block text-sm text-neutral-300">DOI or URL</label>
+    <main className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
+      <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+        <h1 className="font-heading text-5xl mb-2">Lay Science</h1>
+        <p className="text-neutral-400 mb-8">AI that turns research into clear, engaging summaries.</p>
+        <div className="w-full max-w-xl">
+          <div className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30">
+            <label className="cursor-pointer text-neutral-400 hover:text-white">
+              <input
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                <path stroke="currentColor" strokeWidth="1.5" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </label>
             <input
-              className="w-full rounded-md bg-neutral-800 px-3 py-2 outline-none ring-1 ring-neutral-700 focus:ring-white/30"
-              placeholder="10.xxxx/..., https://..."
+              className="flex-1 bg-transparent text-neutral-200 placeholder:text-neutral-500 outline-none"
+              placeholder="Ask anything"
               value={ref}
               onChange={(e) => setRef(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onStart(); }}
             />
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-sm text-neutral-300">PDF (optional)</label>
-            <input
-              type="file" accept="application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="w-full text-neutral-200"
-            />
-            {file && <p className="text-xs text-neutral-400">Selected: {file.name}</p>}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <label className="text-sm">Length</label>
-            <select
-              className="rounded-md bg-neutral-800 px-3 py-2 outline-none ring-1 ring-neutral-700 focus:ring-white/30"
-              value={length}
-              onChange={(e) => setLength(e.target.value as any)}
-            >
-              <option value="default">Default (≈200 words)</option>
-              <option value="extended">Extended (≈350 words)</option>
-            </select>
-          </div>
-
-          <div className="flex gap-3">
             <button
+              type="button"
+              className="text-neutral-400 hover:text-white disabled:opacity-50"
               onClick={onStart}
               disabled={busy}
-              className="rounded-md bg-white text-black px-4 py-2 font-medium hover:bg-neutral-200 disabled:opacity-60"
             >
-              Summarize
+              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                <path stroke="currentColor" strokeWidth="1.5" d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z" />
+                <path stroke="currentColor" strokeWidth="1.5" d="M19.5 9v3a7.5 7.5 0 01-15 0V9m7.5 7.5V21" />
+              </svg>
             </button>
-            <button onClick={reset} className="rounded-md border border-white/20 px-4 py-2">Reset</button>
-            {jobId && <span className="text-sm text-neutral-400">Job: {jobId}</span>}
-            {status !== "idle" && <span className="text-sm text-neutral-400">Status: {status}</span>}
           </div>
+          {file && <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>}
         </div>
       </section>
 
-      {/* SUMMARY */}
-      <section className="mx-auto max-w-4xl px-6 pb-20">
+      <section className="mx-auto w-full max-w-3xl px-6 pb-16">
         {summary ? (
           <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
             <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
             <pre className="whitespace-pre-wrap text-neutral-200">{summary}</pre>
           </article>
-        ) : (
-          <p className="text-neutral-500">No summary yet.</p>
-        )}
+        ) : status === "running" || status === "queued" ? (
+          <p className="text-center text-neutral-500">Generating summary...</p>
+        ) : null}
       </section>
     </main>
   );
 }
+

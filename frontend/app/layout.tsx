@@ -7,8 +7,8 @@ const heading = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--fon
 const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
-  title: "LayScience",
-  description: "A crisp frontend for scientific PDF summarisation"
+  title: "Lay Science",
+  description: "AI that turns research into clear, engaging summaries."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
