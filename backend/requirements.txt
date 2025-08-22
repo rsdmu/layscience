@@ -8,3 +8,4 @@ openai==1.40.6
 boto3==1.34.162
 tqdm==4.66.4
 beautifulsoup4==4.12.3
+httpx==0.27.0
