@@ -17,9 +17,9 @@ export default function AboutPage() {
       <p className="max-w-prose mt-4">
         Contact me at
         <a href="mailto:rashidmushkani@gmail.com" className="underline ml-1">
-          rashidmushkani@gmail.com 
-        </a>
-         for questions or feedback.
+          rashidmushkani@gmail.com
+        </a>{" "}
+        for questions or feedback.
       </p>
     </main>
   );
