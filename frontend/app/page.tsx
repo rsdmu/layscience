@@ -6,6 +6,8 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { registerAccount, verifyCode } from "@/lib/api";
 
+console.info("API base", process.env.NEXT_PUBLIC_API_BASE);
+
 export default function Welcome() {
   const [step, setStep] = useState<"choice" | "register" | "verify">("choice");
   const [username, setUsername] = useState("");
