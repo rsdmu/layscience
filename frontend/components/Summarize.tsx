@@ -5,7 +5,12 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { startJob, getJob, getSummary } from "@/lib/api";
 
-type HistoryItem = { type: "link" | "pdf"; value: string; name?: string };
+type HistoryItem = {
+  type: "link" | "pdf";
+  value: string;
+  name?: string;
+  title?: string;
+};
 
 export default function Summarize() {
   const [ref, setRef] = useState("");
@@ -34,7 +39,9 @@ export default function Summarize() {
   function addToHistory(item: HistoryItem) {
     setHistory((prev) => {
       const newHistory = [item, ...prev];
-      const toPersist = newHistory.filter((h) => h.type === "link").slice(0, 20);
+      const toPersist = newHistory
+        .filter((h) => h.type === "link")
+        .slice(0, 20);
       localStorage.setItem("history", JSON.stringify(toPersist));
       return newHistory;
     });
@@ -86,6 +93,19 @@ export default function Summarize() {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         const s = await getSummary(id);
         if (s?.payload?.summary) setSummary(s.payload.summary);
+        if (s?.payload?.meta?.title) {
+          setHistory((prev) => {
+            if (prev.length === 0) return prev;
+            const [first, ...rest] = prev;
+            const updated = { ...first, title: s.payload.meta.title };
+            const newHistory = [updated, ...rest];
+            const toPersist = newHistory
+              .filter((h) => h.type === "link")
+              .slice(0, 20);
+            localStorage.setItem("history", JSON.stringify(toPersist));
+            return newHistory;
+          });
+        }
       }
     } catch (e) {
       // ignore transient errors
@@ -117,7 +137,38 @@ export default function Summarize() {
 
 
   return (
-    <main className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
+    <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
+      {history.length > 0 && (
+        <aside className="w-64 max-h-dvh overflow-y-auto border-r border-neutral-800 p-4 text-sm text-neutral-400">
+          <p className="mb-2">Recent references:</p>
+          <ul className="space-y-1">
+            {history.map((h, i) => (
+              <li key={i}>
+                {h.type === "pdf" ? (
+                  <a
+                    href={h.value}
+                    target="_blank"
+                    rel="noopener"
+                    className="text-neutral-400 hover:underline block truncate"
+                  >
+                    {h.title || h.name || "PDF"}
+                  </a>
+                ) : (
+                  <a
+                    href={h.value.startsWith("http") ? h.value : `https://doi.org/${h.value}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="text-neutral-400 hover:underline block truncate"
+                  >
+                    {h.title || h.value}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+      <div className="flex-1 flex flex-col">
         <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
           <p className="text-neutral-400 mb-8 text-sm sm:text-base">AI that turns research into clear, engaging summaries.</p>
@@ -174,7 +225,9 @@ export default function Summarize() {
                   placeholder="Upload a paper or enter a DOI/URL"
                   value={ref}
                   onChange={(e) => setRef(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onStart(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onStart();
+                  }}
                 />
               </div>
               <button
@@ -209,56 +262,27 @@ export default function Summarize() {
               </select>
             </div>
             {file && <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>}
-            {history.length > 0 && (
-              <div className="mt-4 text-left text-sm text-neutral-400">
-                <p className="mb-2">Recent references:</p>
-                <ul className="space-y-1">
-                  {history.map((h, i) => (
-                    <li key={i}>
-                      {h.type === "pdf" ? (
-                        <a
-                          href={h.value}
-                          target="_blank"
-                          rel="noopener"
-                          className="text-blue-400 hover:underline"
-                        >
-                          {h.name || "PDF"}
-                        </a>
-                      ) : (
-                        <a
-                          href={h.value.startsWith("http") ? h.value : `https://doi.org/${h.value}`}
-                          target="_blank"
-                          rel="noopener"
-                          className="text-blue-400 hover:underline"
-                        >
-                          {h.value}
-                        </a>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </section>
 
-      <section className="mx-auto w-full max-w-4xl px-6 pb-16">
-        {summary ? (
-          <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
-            <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
-            <div
-              className="text-neutral-200 whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{
-                __html: summary
-                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                  .replace(/\n/g, '<br/>'),
-              }}
-            />
-          </article>
-        ) : status === "running" || status === "queued" ? (
-          <p className="text-center text-neutral-500">Generating summary...</p>
-        ) : null}
-      </section>
+        <section className="mx-auto w-full max-w-4xl px-6 pb-16">
+          {summary ? (
+            <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
+              <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
+              <div
+                className="text-neutral-200 whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{
+                  __html: summary
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br/>'),
+                }}
+              />
+            </article>
+          ) : status === "running" || status === "queued" ? (
+            <p className="text-center text-neutral-500">Generating summary...</p>
+          ) : null}
+        </section>
+      </div>
     </main>
   );
 }
