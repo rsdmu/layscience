@@ -48,7 +48,9 @@ class RequestIdFormatter(logging.Formatter):
 
 _handler = logging.StreamHandler()
 _handler.setFormatter(
-    RequestIdFormatter("%(asctime)s %(levelname)s %(name)s [%(request_id)s] %(message)s")
+    RequestIdFormatter(
+        "%(asctime)s %(levelname)s %(name)s [%(request_id)s] %(message)s"
+    )
 )
 logging.basicConfig(level=LOG_LEVEL, handlers=[_handler])
 logger = logging.getLogger("layscience")
@@ -63,23 +65,29 @@ pending_codes: Dict[str, Dict[str, Any]] = {}
 
 def _send_verification_email(to: str, code: str) -> None:
     host = os.getenv("SMTP_HOST")
-    port = int(os.getenv("SMTP_PORT", "0") or 0)
+    # Default to the standard SMTP submission port if none provided
+    port = int(os.getenv("SMTP_PORT") or 587)
     user = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASS")
+
     msg = EmailMessage()
     msg["Subject"] = "LayScience verification code"
     msg["From"] = user or "no-reply@layscience"
     msg["To"] = to
     msg.set_content(f"Your verification code is {code}")
-    if host and port:
+
+    if host:
         with smtplib.SMTP(host, port) as server:
+            server.ehlo()
             if os.getenv("SMTP_TLS") == "1":
                 server.starttls()
+                server.ehlo()
             if user and password:
                 server.login(user, password)
             server.send_message(msg)
-    else:  # pragma: no cover
+    else:  # pragma: no cover - fallback for dev environments
         logger.info(f"Verification code for {to}: {code}")
+
 
 # CORS -----------------------------------------------------------------------
 ALLOWED = os.getenv("ALLOWED_ORIGINS", "*")
@@ -120,7 +128,9 @@ async def add_request_id(request: Request, call_next):
             "where": e.where,
             "correlation_id": req_id,
         }
-        return JSONResponse(status_code=e.status_code, content=payload, headers={"X-Request-ID": req_id})
+        return JSONResponse(
+            status_code=e.status_code, content=payload, headers={"X-Request-ID": req_id}
+        )
     except Exception as e:  # pragma: no cover
         # catch all unexpected exceptions
         tb = traceback.format_exc(limit=3)
@@ -133,7 +143,9 @@ async def add_request_id(request: Request, call_next):
             "correlation_id": req_id,
             "debug": tb if os.getenv("DEBUG") == "1" else None,
         }
-        return JSONResponse(status_code=500, content=payload, headers={"X-Request-ID": req_id})
+        return JSONResponse(
+            status_code=500, content=payload, headers={"X-Request-ID": req_id}
+        )
     duration_ms = int((time.time() - start) * 1000)
     response.headers["X-Request-ID"] = req_id
     response.headers["X-Response-Time-ms"] = str(duration_ms)
@@ -146,7 +158,9 @@ class StartJobJSON(BaseModel):
     length: Literal["default", "extended"] = "default"
 
 
-def _normalize_ref(ref: Optional[str], doi: Optional[str], url: Optional[str]) -> Optional[str]:
+def _normalize_ref(
+    ref: Optional[str], doi: Optional[str], url: Optional[str]
+) -> Optional[str]:
     """Choose the first non‑empty reference value among ref, doi and url."""
     return ref or doi or url
 
@@ -396,14 +410,16 @@ def get_job(job_id: str):
         "id": job_id,
         "status": j["status"],
         "payload": j.get("payload"),
-        "error": {
-            "code": j.get("error_code"),
-            "message": j.get("error_message"),
-            "where": j.get("error_where"),
-            "hint": j.get("error_hint"),
-        }
-        if j.get("error_code")
-        else None,
+        "error": (
+            {
+                "code": j.get("error_code"),
+                "message": j.get("error_message"),
+                "where": j.get("error_where"),
+                "hint": j.get("error_hint"),
+            }
+            if j.get("error_code")
+            else None
+        ),
     }
 
 
