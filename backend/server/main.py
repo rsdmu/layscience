@@ -156,6 +156,8 @@ async def add_request_id(request: Request, call_next):
 class StartJobJSON(BaseModel):
     ref: Optional[str] = Field(default=None, description="DOI or URL")
     length: Literal["default", "extended"] = "default"
+    mode: Literal["default", "detailed", "funny"] = "default"
+    language: Literal["en", "fa", "fr", "es", "de"] = "en"
 
 
 def _normalize_ref(
@@ -239,6 +241,8 @@ async def start_summary(
     content_type = request.headers.get("content-type", "")
     ref = doi = url = None
     length = "default"
+    mode = "default"
+    language = "en"
     pdf: Optional[UploadFile] = None
 
     if content_type.startswith("application/json"):
@@ -246,12 +250,16 @@ async def start_summary(
         body = StartJobJSON.model_validate(data)
         ref = body.ref
         length = body.length or length
+        mode = body.mode or mode
+        language = body.language or language
     else:
         form = await request.form()
         ref = form.get("ref")
         doi = form.get("doi")
         url = form.get("url")
         length = form.get("length", length)
+        mode = form.get("mode", mode)
+        language = form.get("language", language)
         pdf = form.get("pdf")  # may be UploadFile or None
 
     ref_value = _normalize_ref(ref, doi, url)
@@ -268,6 +276,21 @@ async def start_summary(
             "length must be 'default' or 'extended'",
             where="start_summary",
         )
+    if mode not in ("default", "detailed", "funny"):
+        raise err.BadRequest(
+            "invalid_mode",
+            "mode must be 'default', 'detailed' or 'funny'",
+            where="start_summary",
+        )
+    if language not in ("en", "fa", "fr", "es", "de"):
+        raise err.BadRequest(
+            "invalid_language",
+            "language must be one of 'en','fa','fr','es','de'",
+            where="start_summary",
+        )
+
+    if mode == "detailed":
+        length = "extended"
 
     saved_pdf_path: Optional[str] = None
     saved_pdf_name: Optional[str] = None
@@ -301,6 +324,8 @@ async def start_summary(
         payload={
             "ref": ref_value,
             "length": length,
+            "mode": mode,
+            "language": language,
             "pdf_path": saved_pdf_path,
             "pdf_name": saved_pdf_name,
         },
@@ -327,6 +352,10 @@ async def process_job(job_id: str, request_id: str):
     try:
         payload = job["payload"]
         length = payload.get("length", "default")
+        mode = payload.get("mode", "default")
+        language = payload.get("language", "en")
+        if mode == "detailed":
+            length = "extended"
         ref = payload.get("ref")
         pdf_path = payload.get("pdf_path")
 
@@ -357,6 +386,18 @@ async def process_job(job_id: str, request_id: str):
 
         # Summarise using OpenAI
         sys_prompt = summarizer.LAY_SUMMARY_SYSTEM_PROMPT
+        if mode == "detailed":
+            sys_prompt += "\nWrite a detailed lay summary in five short paragraphs."
+        elif mode == "funny":
+            sys_prompt += "\nWrite the lay summary in a humorous and light-hearted tone while staying accurate."
+        if language != "en":
+            lang_name = {
+                "fa": "Persian",
+                "fr": "French",
+                "es": "Spanish",
+                "de": "German",
+            }.get(language, "English")
+            sys_prompt += f"\nRespond in {lang_name}."
         summary_md = summarizer.summarise(
             text=text,
             meta=meta,

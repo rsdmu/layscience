@@ -140,3 +140,38 @@ def test_crossref_fallback(monkeypatch):
     assert data['status'] == 'done'
     assert data['payload']['meta']['source'] == 'crossref_abstract'
     assert captured['text'] == 'Crossref abstract text'
+
+
+def test_mode_and_language(monkeypatch):
+    """Custom mode and language affect system prompt and length."""
+
+    def fake_fetch(ref: str):
+        return "Text from web", {"title": "T", "authors": "A"}
+
+    monkeypatch.setattr(fetcher, "fetch_and_extract", fake_fetch)
+
+    captured = {}
+
+    def fake_summarise(text, meta, length, system_prompt):
+        captured["length"] = length
+        captured["system"] = system_prompt
+        return "summary"
+
+    monkeypatch.setattr(main.summarizer, "summarise", fake_summarise)
+
+    resp = client.post(
+        "/api/v1/summaries",
+        json={"ref": "https://example.com", "mode": "funny", "language": "fr"},
+    )
+    assert resp.status_code == 200
+    job_id = resp.json()["id"]
+    for _ in range(20):
+        res = client.get(f"/api/v1/summaries/{job_id}")
+        if res.json()["status"] == "done":
+            break
+        time.sleep(0.1)
+    data = res.json()
+    assert data["status"] == "done"
+    assert captured["length"] == "default"
+    assert "humorous" in captured["system"].lower()
+    assert "French" in captured["system"]

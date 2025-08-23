@@ -44,14 +44,28 @@ async function asJson(res: Response) {
 }
 
 type LengthOpt = "default" | "extended";
+type ModeOpt = "default" | "detailed" | "funny";
+type LanguageOpt = "en" | "fa" | "fr" | "es" | "de";
 
-export async function startJob({ ref, file, length = "default" }: {
-  ref?: string; file?: File | null; length?: LengthOpt;
+export async function startJob({
+  ref,
+  file,
+  length = "default",
+  mode = "default",
+  language = "en",
+}: {
+  ref?: string;
+  file?: File | null;
+  length?: LengthOpt;
+  mode?: ModeOpt;
+  language?: LanguageOpt;
 }) {
   if (file) {
     const fd = new FormData();
     if (ref) fd.set("ref", ref);
     fd.set("length", length);
+    fd.set("mode", mode);
+    fd.set("language", language);
     fd.set("pdf", file, file.name);
     const res = await fetch(api("/api/v1/summaries"), {
       method: "POST",
@@ -63,7 +77,7 @@ export async function startJob({ ref, file, length = "default" }: {
     const res = await fetch(api("/api/v1/summaries"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ref, length }),
+      body: JSON.stringify({ ref, length, mode, language }),
       cache: "no-store",
     });
     return asJson(res);
