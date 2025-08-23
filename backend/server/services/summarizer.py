@@ -22,6 +22,7 @@ FALLBACK_MODEL = os.getenv("OPENAI_FALLBACK_MODEL", "gpt-4o-mini")
 MAX_SOURCE_CHARS = int(os.getenv("MAX_SOURCE_CHARS", "120000"))
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "900"))
 TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.2"))
+OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "60"))
 
 logger = logging.getLogger(__name__)
 
@@ -98,18 +99,25 @@ def _error_hint(exc: Exception) -> str:
     name = exc.__class__.__name__
     msg = str(exc)
     status = getattr(exc, "status_code", None)
+    low = msg.lower()
 
-    if status in (401, 403) or "Authentication" in name:
+    if status in (401, 403) or "auth" in low:
         return "OpenAI auth/entitlement issue. Verify OPENAI_API_KEY and that the model is available to your account."
-    if status == 429 or "RateLimit" in name:
+    if status == 429 or "rate" in low:
         return "Rate limited by OpenAI. Retry with backoff or reduce concurrency."
-    if status in (400, 413) or "context length" in msg.lower() or "too large" in msg.lower():
+    if status in (400, 413) or "context" in low or "too large" in low or "max tokens" in low:
         return "Payload too large. Lower MAX_SOURCE_CHARS or use a shorter source (e.g., abstract page)."
+    if "timeout" in low:
+        return "OpenAI request timed out. Increase OPENAI_TIMEOUT or retry."
     return "Transient network/service error. Retry later or check Render logs for details."
 
 
-def summarise(text: str, meta: Dict[str, Any], length: str,
-              system_prompt: str = LAY_SUMMARY_SYSTEM_PROMPT) -> str:
+def summarise(
+    text: str,
+    meta: Dict[str, Any],
+    length: str,
+    system_prompt: str = LAY_SUMMARY_SYSTEM_PROMPT,
+) -> str:
     """Produce a lay summary using OpenAI’s Responses API."""
     title = meta.get("title") or "(unknown title)"
     doi = meta.get("doi") or meta.get("pdf_url") or meta.get("input") or meta.get("source_path") or ""
@@ -154,9 +162,11 @@ Extracted text (may be partial):
         )
 
     client = OpenAI()
+    # Set per-request timeout via with_options so we don't rely on global client config
+    responses_api = client.with_options(timeout=OPENAI_TIMEOUT).responses
 
-    # Build chat-style messages for the Responses API
-    def _build_messages() -> List[Dict[str, str]]:
+    # Build Responses API input (NOT `messages`)
+    def _build_input() -> List[Dict[str, str]]:
         return [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": instruction},
@@ -174,9 +184,9 @@ Extracted text (may be partial):
         for attempt in range(3):
             try:
                 logger.info("Calling OpenAI model=%s attempt=%d", model, attempt + 1)
-                response = client.responses.create(
+                response = responses_api.create(
                     model=model,
-                    messages=_build_messages(),
+                    input=_build_input(),
                     temperature=TEMPERATURE,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 )
@@ -184,11 +194,11 @@ Extracted text (may be partial):
                 break
             except Exception as e:  # network/auth/rate-limit/size/etc.
                 last_exc = e
+                low = str(e).lower()
                 # If the model looks invalid, try the next model immediately
-                msg = str(e).lower()
-                invalid_model = ("model" in msg and "not found" in msg) or ("unsupported" in msg)
+                invalid_model = ("model" in low and "not found" in low) or ("unsupported" in low)
                 if invalid_model and model != models_to_try[-1]:
-                    logger.warning("Model '%s' rejected request; trying fallback. Error: %s", model, e)
+                    logger.warning("Model '%s' invalid; switching to fallback. Error: %s", model, e)
                     break
                 # backoff and retry
                 delay = 1.5 * (attempt + 1)
