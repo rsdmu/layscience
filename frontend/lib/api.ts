@@ -113,3 +113,73 @@ export async function verifyCode({ email, code }: { email: string; code: string 
   });
   return asJson(res);
 }
+
+export async function resendCode(email: string) {
+  const res = await fetch(api("/api/v1/resend"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function deleteAccount() {
+  const res = await fetch(api("/api/v1/account"), {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function listMySummaries(page = 1) {
+  const res = await fetch(api(`/api/v1/summaries?me=true&page=${page}`), {
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function listFeedbackTopics(page = 1) {
+  const res = await fetch(api(`/api/v1/feedback/topics?page=${page}`), {
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function createFeedbackTopic({ title, body }: { title: string; body: string }) {
+  const res = await fetch(api("/api/v1/feedback/topics"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title, body }),
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function listFeedbackReplies(topicId: number) {
+  const res = await fetch(api(`/api/v1/feedback/topics/${topicId}/replies`), {
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function createFeedbackReply(topicId: number, body: string) {
+  const res = await fetch(api(`/api/v1/feedback/topics/${topicId}/replies`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ body }),
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
+export async function submitFeedbackSurvey(q1: string, q2: number, q3: string) {
+  const res = await fetch(api("/api/v1/feedback/survey"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q1, q2, q3 }),
+    cache: "no-store",
+  });
+  return asJson(res);
+}
+
