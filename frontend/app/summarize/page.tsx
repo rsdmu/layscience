@@ -111,10 +111,11 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto"
+                className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto flex items-center justify-center"
                 onClick={onStart}
                 disabled={busy}
               >
+                <span className="mr-2 inline-block h-2 w-2 rounded-full border border-current"></span>
                 Summarize
               </button>
             </div>
@@ -122,11 +123,18 @@ export default function Home() {
           </div>
         </section>
 
-      <section className="mx-auto w-full max-w-3xl px-6 pb-16">
+      <section className="mx-auto w-full max-w-4xl px-6 pb-16">
         {summary ? (
           <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
             <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
-            <pre className="whitespace-pre-wrap text-neutral-200">{summary}</pre>
+            <div
+              className="text-neutral-200 whitespace-pre-wrap"
+              dangerouslySetInnerHTML={{
+                __html: summary
+                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                  .replace(/\n/g, '<br/>'),
+              }}
+            />
           </article>
         ) : status === "running" || status === "queued" ? (
           <p className="text-center text-neutral-500">Generating summary...</p>
