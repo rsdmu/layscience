@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import ClientToaster from "@/components/ClientToaster";
 import AboutHomeLink from "@/components/AboutHomeLink";
+import UserFab from "@/components/UserFab";
 import { Bebas_Neue, Inter } from "next/font/google";
 
 const heading = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-heading" });
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body>
           <AboutHomeLink />
           {children}
+          <UserFab />
           <p className="fixed bottom-0 left-0 w-full pb-2 text-center text-xs text-neutral-400">
             AI can make mistakes. LayScience is still in test.
           </p>

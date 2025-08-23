@@ -26,6 +26,8 @@ export default function Welcome() {
     try {
       await verifyCode({ email, code });
       localStorage.setItem("hasAccount", "true");
+      localStorage.setItem("username", username);
+      localStorage.setItem("email", email);
       toast.success("Account verified");
       setStep("choice");
     } catch (e: any) {
