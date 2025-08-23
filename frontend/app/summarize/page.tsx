@@ -117,7 +117,7 @@ export default function Home() {
       setTestCount(newCount);
       localStorage.setItem("testCount", newCount.toString());
     }
-  }, [summary]);
+  }, [summary, hasAccount, testCount]);
 
   return (
     <main className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
