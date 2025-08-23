@@ -75,3 +75,68 @@ def test_singular_summary_route(monkeypatch):
     data = res.json()
     assert data['status'] == 'done'
     assert 'Lay Summary' in data['payload']['summary']
+
+
+def test_crossref_fallback(monkeypatch):
+    """Paywalled DOI falls back to Crossref abstract."""
+
+    class DummyResp:
+        def __init__(self, url: str, headers=None, text: str = "", json_data=None):
+            self.url = url
+            self.status_code = 200
+            self.headers = headers or {}
+            self._text = text
+            self._json = json_data
+            self.content = b""
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise fetcher.httpx.HTTPStatusError("err", request=None, response=self)
+
+        def json(self):
+            return self._json
+
+        @property
+        def text(self):
+            return self._text
+
+    class DummyClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            pass
+
+        def get(self, url):
+            if url.startswith("https://api.crossref.org/works/"):
+                data = {"message": {"abstract": "<jats:p>Crossref abstract text</jats:p>"}}
+                return DummyResp(url, headers={"content-type": "application/json"}, json_data=data)
+            # Simulate paywalled landing page with no text
+            return DummyResp(url, headers={"content-type": "text/html"}, text="<html></html>")
+
+    monkeypatch.setattr(fetcher.httpx, "Client", DummyClient)
+    monkeypatch.setattr(fetcher.httpx, "Timeout", lambda *a, **k: None)
+
+    captured = {}
+
+    def fake_summarise(text, meta, length, system_prompt):
+        captured['text'] = text
+        return 'summary'
+
+    monkeypatch.setattr(main.summarizer, 'summarise', fake_summarise)
+
+    resp = client.post('/api/v1/summaries', json={'ref': '10.1234/paywalled'})
+    assert resp.status_code == 200
+    job_id = resp.json()['id']
+    for _ in range(20):
+        res = client.get(f'/api/v1/summaries/{job_id}')
+        if res.json()['status'] == 'done':
+            break
+        time.sleep(0.1)
+    data = res.json()
+    assert data['status'] == 'done'
+    assert data['payload']['meta']['source'] == 'crossref_abstract'
+    assert captured['text'] == 'Crossref abstract text'

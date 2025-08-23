@@ -75,6 +75,35 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
         timeout = httpx.Timeout(20.0)
         # Keep r and client alive together
         with httpx.Client(follow_redirects=True, headers=HEADERS, timeout=timeout) as client:
+            def _finalise(text: str, meta: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+                """Return text/meta or fall back to Crossref if text is empty."""
+                if text and text.strip():
+                    return text, meta
+
+                doi = meta.get("doi")
+                if doi:
+                    try:
+                        cr = client.get(f"https://api.crossref.org/works/{doi}")
+                        cr.raise_for_status()
+                        msg = (cr.json() or {}).get("message", {})
+                        abstract = msg.get("abstract")
+                        if abstract:
+                            abstract_text = BeautifulSoup(abstract, "html.parser").get_text(" ", strip=True)
+                            meta["source"] = "crossref_abstract"
+                            return abstract_text, meta
+                    except Exception as e:  # pragma: no cover - best effort
+                        logger.debug("Crossref lookup failed for %s: %s", doi, e)
+
+                raise err.UserFacingError(
+                    code="empty_content",
+                    public_message=(
+                        "Couldn't extract any text. If the paper is paywalled or scanned, please upload a direct PDF or paste the abstract."
+                    ),
+                    where="fetch_and_extract",
+                    status_code=422,
+                    hint="Try uploading the PDF or provide a different URL/DOI.",
+                )
+
             r = client.get(url)
             r.raise_for_status()
 
@@ -95,7 +124,7 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
                         pass
                 meta.update(pmeta)
                 meta["source"] = "fetched_pdf"
-                return text, meta
+                return _finalise(text, meta)
 
             # Otherwise parse HTML
             html = r.text
@@ -161,7 +190,7 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
                         meta.update(pmeta)
                         meta["source"] = "resolved_pdf"
                         meta["pdf_url"] = pdf_url
-                        return text, meta
+                        return _finalise(text, meta)
                 except httpx.RequestError as e:
                     logger.debug("PDF candidate fetch failed %s: %s", pdf_url, e)
                     continue
@@ -177,13 +206,13 @@ def fetch_and_extract(ref: str) -> Tuple[str, Dict[str, Any]]:
             if desc_el and (desc_el.get("content") or "").strip():
                 text = desc_el.get("content").strip()
                 meta["source"] = "html_meta"
-                return text, meta
+                return _finalise(text, meta)
 
             # Final fallback: first paragraphs
             paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p")]
             text = "\n\n".join([p for p in paragraphs if p][:15]).strip()
             meta["source"] = "html_text"
-            return text, meta
+            return _finalise(text, meta)
 
     except httpx.HTTPStatusError as e:
         logger.warning("HTTP error fetching %s: %s", url, e.response.status_code)
