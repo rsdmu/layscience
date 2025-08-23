@@ -328,9 +328,11 @@ async def process_job(job_id: str, request_id: str):
             )
 
         if not text.strip():
+            ref_info = f" from {ref}" if ref else ""
             raise err.UserFacingError(
                 code="empty_content",
-                public_message="Couldn't extract any text. If the paper is paywalled or scanned, please upload a direct PDF or paste the abstract.",
+                public_message=
+                f"Couldn't extract any text{ref_info}. If the paper is paywalled or scanned, please upload a direct PDF or paste the abstract.",
                 where="process_job",
                 status_code=422,
                 hint="Try uploading the PDF or provide a different URL/DOI.",

@@ -75,3 +75,23 @@ def test_singular_summary_route(monkeypatch):
     data = res.json()
     assert data['status'] == 'done'
     assert 'Lay Summary' in data['payload']['summary']
+
+
+def test_empty_content_message_includes_ref(monkeypatch):
+    def fake_fetch(ref: str):
+        return '', {}
+
+    monkeypatch.setattr(fetcher, 'fetch_and_extract', fake_fetch)
+    ref = 'https://example.com/paywalled'
+    resp = client.post('/api/v1/summaries', json={'ref': ref})
+    assert resp.status_code == 200
+    job_id = resp.json()['id']
+    for _ in range(20):
+        res = client.get(f'/api/v1/jobs/{job_id}')
+        data = res.json()
+        if data['status'] == 'failed':
+            break
+        time.sleep(0.1)
+    assert data['status'] == 'failed'
+    assert data['error']['code'] == 'empty_content'
+    assert ref in data['error']['message']
