@@ -1,19 +1,22 @@
 // frontend/lib/api.ts
 
-const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
-
-// If running on Vercel or you want to force proxy, USE_PROXY=true
+// Only use the proxy when explicitly enabled
 const USE_PROXY = process.env.NEXT_PUBLIC_USE_PROXY === "1";
 
-// Fallback base for dev only. In prod with proxy, we’ll use relative /api/proxy.
+const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
+
 const DIRECT_BASE =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
   (process.env.NODE_ENV === "development" ? DEFAULT_DEV_BASE : "");
 
 function api(path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
-  if (USE_PROXY) return `/api/proxy${p}`; // Same-origin to Vercel route
-  if (!DIRECT_BASE) throw new Error("API base not set. Define NEXT_PUBLIC_API_BASE or enable the proxy.");
+  if (USE_PROXY) return `/api/proxy${p}`;
+  if (!DIRECT_BASE) {
+    throw new Error(
+      "API base not set. Define NEXT_PUBLIC_API_BASE or enable the proxy."
+    );
+  }
   return `${DIRECT_BASE}${p}`;
 }
 
