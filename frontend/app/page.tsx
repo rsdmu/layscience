@@ -4,9 +4,16 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import type { Metadata } from "next";
 import { registerAccount, verifyCode } from "@/lib/api";
 
 console.info("API base", process.env.NEXT_PUBLIC_API_BASE);
+
+export const metadata: Metadata = {
+  title: "Welcome",
+  description:
+    "Create an account or test Lay Science—the AI that turns research into clear, engaging summaries.",
+};
 
 export default function Welcome() {
   const [step, setStep] = useState<"choice" | "register" | "verify">("choice");

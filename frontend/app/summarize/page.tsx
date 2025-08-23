@@ -2,9 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import type { Metadata } from "next";
 import { startJob, getJob, getSummary } from "@/lib/api";
 
 type HistoryItem = { type: "link" | "pdf"; value: string; name?: string };
+
+export const metadata: Metadata = {
+  title: "Summarize Research",
+  description:
+    "Upload a paper or enter a DOI/URL to get a concise AI-generated summary from Lay Science.",
+};
 
 export default function Home() {
   const [ref, setRef] = useState("");
