@@ -101,7 +101,9 @@ export default function Home() {
     <main className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
         <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
-          <p className="text-neutral-400 mb-8 text-sm sm:text-base">AI that turns research into clear, engaging summaries.</p>
+          <p className="text-neutral-400 mb-8 text-sm sm:text-base">
+            AI that turns research into clear, engaging summaries.
+          </p>
           {!hasAccount && (
             <p className="text-neutral-400 mb-4 text-sm">Tests remaining: {Math.max(0,5 - testCount)}</p>
           )}
