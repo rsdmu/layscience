@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import ClientToaster from "@/components/ClientToaster";
+import Link from "next/link";
 import { Bebas_Neue, Inter } from "next/font/google";
 
 const heading = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-heading" });
@@ -40,14 +41,20 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${heading.variable} ${body.variable}`}>
-      <body>
-        {children}
-        <p className="fixed bottom-0 left-0 w-full pb-2 text-center text-xs text-neutral-400">
-          AI can make mistakes. LayScience is still in test.
-        </p>
-        <ClientToaster />
-      </body>
-    </html>
+      <html lang="en" className={`${heading.variable} ${body.variable}`}>
+        <body>
+          <Link
+            href="/about"
+            className="fixed top-2 right-2 text-xs text-neutral-400 hover:text-neutral-200"
+          >
+            about
+          </Link>
+          {children}
+          <p className="fixed bottom-0 left-0 w-full pb-2 text-center text-xs text-neutral-400">
+            AI can make mistakes. LayScience is still in test.
+          </p>
+          <ClientToaster />
+        </body>
+      </html>
   );
 }
