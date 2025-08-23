@@ -17,9 +17,10 @@ import logging
 import traceback
 import secrets
 import smtplib
+import hashlib
 from email.message import EmailMessage
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, UploadFile, BackgroundTasks, Request
@@ -194,27 +195,72 @@ class VerifyRequest(BaseModel):
     code: str
 
 
+class ResendRequest(BaseModel):
+    email: str
+
+
 def _generate_code() -> str:
     """Generate a 6-digit verification code using a cryptographically strong RNG."""
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
+def _hash_code(code: str) -> str:
+    return hashlib.sha256(code.encode()).hexdigest()
+
+
 @app.post("/api/v1/register")
 def register(req: RegisterRequest):
     code = _generate_code()
-    pending_codes[req.email] = {"code": code, "username": req.username}
+    pending_codes[req.email] = {
+        "code": code,
+        "code_hash": _hash_code(code),
+        "username": req.username,
+        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "attempts": 0,
+        "resent": 0,
+    }
     _send_verification_email(req.email, code)
-    return {"ok": True}
+    resp = {"status": "sent"}
+    if not os.getenv("SMTP_HOST"):
+        resp["dev_hint"] = "code logged to server"
+    return resp
+
+
+@app.post("/api/v1/resend")
+def resend(req: ResendRequest):
+    record = pending_codes.get(req.email)
+    if record and datetime.utcnow() < record.get("expires_at", datetime.utcnow()):
+        code = record["code"]
+    else:
+        code = _generate_code()
+        pending_codes[req.email] = {
+            "code": code,
+            "code_hash": _hash_code(code),
+            "username": record.get("username") if record else "",
+            "expires_at": datetime.utcnow() + timedelta(minutes=10),
+            "attempts": 0,
+            "resent": 0,
+        }
+        record = pending_codes[req.email]
+    record["resent"] = record.get("resent", 0) + 1
+    _send_verification_email(req.email, code)
+    resp = {"status": "resent"}
+    if not os.getenv("SMTP_HOST"):
+        resp["dev_hint"] = "code logged to server"
+    return resp
 
 
 @app.post("/api/v1/verify")
 def verify(req: VerifyRequest):
     record = pending_codes.get(req.email)
-    if not record or record.get("code") != req.code:
+    if not record or datetime.utcnow() > record.get("expires_at", datetime.utcnow()):
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    if not secrets.compare_digest(record["code_hash"], _hash_code(req.code)):
+        record["attempts"] = record.get("attempts", 0) + 1
         raise HTTPException(status_code=400, detail="Invalid code")
     accounts[req.email] = {"username": record.get("username")}
     pending_codes.pop(req.email, None)
-    return {"ok": True}
+    return {"status": "verified"}
 
 
 @app.post(

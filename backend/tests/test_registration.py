@@ -50,6 +50,7 @@ def test_register_sends_email(monkeypatch):
         "/api/v1/register", json={"username": "alice", "email": "alice@example.com"}
     )
     assert resp.status_code == 200
+    assert resp.json()["status"] == "sent"
     assert captured["host"] == "smtp.example.com"
     assert captured["port"] == 587
     assert captured["to"] == "alice@example.com"
