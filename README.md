@@ -1,6 +1,6 @@
 # LayScience
 
-LayScience is an AI-powered tool that turns research papers (PDF, DOI, or URL) into clear and trustworthy plain-language summaries. It can generate ultra-short "micro-stories" or more detailed write-ups and highlights the exact lines or figures behind each claim with transparent source bubbles. Built first for Kabul University female students—and for anyone who finds papers long, technical, or hard to follow—it aims to spark curiosity and make open science accessible.
+LayScience is an AI-powered tool that turns research papers (PDF, DOI, or URL) into clear and trustworthy plain-language summaries. It can generate ultra-short "micro-stories" or more detailed write-ups. Built first for Kabul University female students—and for anyone who finds papers long, technical, or hard to follow—it aims to spark curiosity and make open science accessible.
 
 The web app is live at [layscience.onrender.com](https://layscience.onrender.com/). You can run up to five summaries without an account; create a free account for unlimited use. If you're able, donations help cover hosting and API costs so the service stays available to those who can't afford much.
 
