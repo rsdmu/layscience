@@ -71,6 +71,9 @@ export default function Welcome() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+          <p className="text-sm text-neutral-400">
+            Lay Science is free for personal use. Contact us for commercial licensing.
+          </p>
           <button
             className="w-full rounded bg-white/10 hover:bg-white/20 py-2"
             onClick={onRegister}
