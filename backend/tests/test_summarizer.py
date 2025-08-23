@@ -18,11 +18,15 @@ def test_summarise_uses_messages(monkeypatch):
         def __init__(self):
             self.responses = FakeResponses()
 
+        def with_options(self, **kwargs):
+            # summariser expects client.with_options(...).responses
+            return self
+
     monkeypatch.setattr(summarizer, 'OpenAI', FakeClient)
 
     summarizer.summarise('text', {}, 'default', system_prompt='sys')
-    assert 'messages' in calls['kwargs']
-    msgs = calls['kwargs']['messages']
+    assert 'input' in calls['kwargs']
+    msgs = calls['kwargs']['input']
     assert msgs[0]['role'] == 'system'
     assert msgs[0]['content'] == 'sys'
 

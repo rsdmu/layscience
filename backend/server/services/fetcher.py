@@ -24,9 +24,16 @@ from . import errors as err
 logger = logging.getLogger(__name__)
 
 # Request headers
+# Use a mainstream browser user-agent to avoid 403s from sites that block
+# unknown clients.
 HEADERS = {
-    "User-Agent": "LayScience/1.0 (+https://layscience.ai)",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
     "Accept": "text/html,application/pdf;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 DOI_RE = re.compile(r"^10\.\d{4,9}/[-._;()/:A-Z0-9]+$", re.IGNORECASE)
