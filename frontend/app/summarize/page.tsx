@@ -7,6 +7,7 @@ import { startJob, getJob, getSummary } from "@/lib/api";
 export default function Home() {
   const [ref, setRef] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "queued" | "running" | "done" | "failed">("idle");
   const [summary, setSummary] = useState("");
@@ -20,6 +21,23 @@ export default function Home() {
     setStatus("idle");
     setSummary("");
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+
+  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function onDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+  }
+
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) setFile(f);
   }
 
   async function onStart() {
@@ -88,7 +106,12 @@ export default function Home() {
             <p className="text-neutral-400 mb-4 text-sm">Tests remaining: {Math.max(0,5 - testCount)}</p>
           )}
           <div className="w-full max-w-xl">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30">
+            <div
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border px-4 py-3 focus-within:ring-2 focus-within:ring-white/30 ${isDragOver ? "border-white/50 bg-neutral-900/80" : "border-neutral-700 bg-neutral-900/60"}`}
+            >
               <div className="flex items-center gap-2 flex-1">
                 <label className="cursor-pointer text-neutral-400 hover:text-white">
                   <input
