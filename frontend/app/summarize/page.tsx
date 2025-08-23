@@ -119,7 +119,8 @@ export default function Home() {
         return newCount;
       });
     }
-  }, [summary, hasAccount]);
+  }, [summary, hasAccount, testCount]);
+
 
   return (
     <main className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
