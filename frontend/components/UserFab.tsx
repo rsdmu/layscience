@@ -18,7 +18,7 @@ export default function UserFab() {
 
   if (!user) return null;
 
-  function getInitials() {
+  function getInitials(user: { username?: string; email?: string }) {
     const name = user.username || "";
     if (name.trim().length === 0 && user.email) {
       return user.email.charAt(0).toUpperCase();
@@ -37,7 +37,7 @@ export default function UserFab() {
         onClick={() => setOpen(true)}
         className="fixed left-4 bottom-4 z-50 h-10 w-10 rounded-full flex items-center justify-center bg-neutral-800 text-white shadow-lg"
       >
-        {getInitials()}
+        {getInitials(user)}
       </button>
       {open && <UserPanel onClose={() => setOpen(false)} user={user} />}
     </>
