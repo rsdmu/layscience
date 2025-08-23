@@ -56,4 +56,4 @@ Pull requests and issues are welcome. Please make sure the tests pass and follow
 
 This project is licensed under the [MIT License](LICENSE).
 
-Created by Rashid Mushkani, 2025.
+Created by Rashid Mushkani, 2025. For questions or feedback, contact [rashidmushkani@gmail.com](mailto:rashidmushkani@gmail.com).
