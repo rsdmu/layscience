@@ -25,6 +25,10 @@ export default function Home() {
   const [hasAccount, setHasAccount] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [mode, setMode] = useState<"default" | "detailed" | "funny">("default");
+  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">(
+    "en"
+  );
 
   function reset() {
     setJobId(null);
@@ -56,7 +60,13 @@ export default function Home() {
       } else if (ref) {
         addToHistory({ type: "link", value: ref });
       }
-      const res = await startJob({ ref: ref || undefined, file, length: "default" });
+      const res = await startJob({
+        ref: ref || undefined,
+        file,
+        length: mode === "detailed" ? "extended" : "default",
+        mode,
+        language,
+      });
       setJobId(res.id);
       setStatus("queued");
       toast.success("Job started");
@@ -166,6 +176,28 @@ export default function Home() {
               >
                 Summarize
               </button>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <select
+                className="flex-1 bg-neutral-900/60 border border-neutral-700 rounded-md px-3 py-2 text-sm text-neutral-200"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as any)}
+              >
+                <option value="default">Default</option>
+                <option value="detailed">Detailed</option>
+                <option value="funny">Funny</option>
+              </select>
+              <select
+                className="flex-1 bg-neutral-900/60 border border-neutral-700 rounded-md px-3 py-2 text-sm text-neutral-200"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as any)}
+              >
+                <option value="en">English</option>
+                <option value="fa">Persian</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+                <option value="de">German</option>
+              </select>
             </div>
             {file && <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>}
             {history.length > 0 && (
