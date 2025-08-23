@@ -94,6 +94,14 @@ export async function getSummary(id: string) {
   return asJson(res);
 }
 
+export async function searchArxiv(query: string, maxResults = 20) {
+  const res = await fetch(
+    api(`/api/v1/arxiv/search?q=${encodeURIComponent(query)}&max_results=${maxResults}`),
+    { cache: "no-store" }
+  );
+  return asJson(res);
+}
+
 export async function registerAccount({ username, email }: { username: string; email: string }) {
   const res = await fetch(api("/api/v1/register"), {
     method: "POST",

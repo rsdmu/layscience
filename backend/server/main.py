@@ -29,7 +29,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .services import jobs as jobs_store
-from .services import storage, summarizer, pdfio, fetcher, errors as err
+from .services import (
+    storage,
+    summarizer,
+    pdfio,
+    fetcher,
+    errors as err,
+    arxiv,
+)
 
 # ----------------------------------------------------------------------------
 # Logging & error handling
@@ -546,3 +553,25 @@ def get_summary(job_id: str):
     if j["status"] != "done":
         return {"id": job_id, "status": j["status"], "error": j.get("error")}
     return {"id": job_id, "status": "done", "payload": j["result"]}
+
+
+# ----------------------------------------------------------------------------
+# arXiv helpers
+# ----------------------------------------------------------------------------
+
+
+@app.get("/api/v1/arxiv/search", tags=["arxiv"])
+def arxiv_search(q: str, max_results: int = 20):
+    """Search arXiv by title/keywords.
+
+    Returns a JSON object with the original query, number of results and the
+    normalised result list.
+    """
+    results = arxiv.search(q, max_results=max_results)
+    return {"query": q, "count": len(results), "results": results}
+
+
+@app.get("/api/v1/arxiv/pdf/{arxiv_id}", tags=["arxiv"])
+def arxiv_pdf(arxiv_id: str):
+    """Return the direct PDF URL for the given arXiv identifier."""
+    return {"id": arxiv_id, "pdf_url": arxiv.pdf_url(arxiv_id)}
