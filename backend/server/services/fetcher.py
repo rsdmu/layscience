@@ -34,6 +34,8 @@ HEADERS = {
     ),
     "Accept": "text/html,application/pdf;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
+    # Some hosts return 403 unless a typical browser encoding header is present
+    "Accept-Encoding": "gzip, deflate, br",
 }
 
 DOI_RE = re.compile(r"^10\.\d{4,9}/[-._;()/:A-Z0-9]+$", re.IGNORECASE)
