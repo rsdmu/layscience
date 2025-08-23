@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,6 +13,12 @@ export default function Welcome() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("hasAccount") === "true") {
+      router.replace("/summarize");
+    }
+  }, [router]);
 
   async function onRegister() {
     try {
