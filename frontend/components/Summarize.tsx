@@ -186,9 +186,9 @@ export default function Summarize() {
                 Summarize
               </button>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               <select
-                className="flex-1 bg-neutral-900/60 border border-neutral-700 rounded-md px-3 py-2 text-sm text-neutral-200"
+                className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
                 value={mode}
                 onChange={(e) => setMode(e.target.value as any)}
               >
@@ -197,7 +197,7 @@ export default function Summarize() {
                 <option value="funny">Funny</option>
               </select>
               <select
-                className="flex-1 bg-neutral-900/60 border border-neutral-700 rounded-md px-3 py-2 text-sm text-neutral-200"
+                className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as any)}
               >
