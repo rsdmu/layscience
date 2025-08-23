@@ -10,6 +10,8 @@ This folder implements a standalone FastAPI service for generating lay summaries
 | `GET` | `/api/v1/jobs/{id}` | Poll the status of a job. Returns the payload and any error details. |
 | `GET` | `/api/v1/summaries/{id}` | Retrieve the summary Markdown once the job status is `done`. |
 | `GET` | `/healthz` | Check DB health and service liveness. |
+| `POST` | `/api/v1/register` | Create a pending account and send a verification code via email. |
+| `POST` | `/api/v1/verify` | Verify the code sent to an email address and activate the account. |
 
 ## Configuration
 
@@ -25,6 +27,11 @@ The backend uses environment variables for configuration:
 | `JOBS_DB_PATH` | `data/jobs.sqlite3` | SQLite database path; falls back to `/tmp/jobs.sqlite3` if unwritable. |
 | `LOG_LEVEL` | `INFO` | Logging level. |
 | `DRY_RUN` | `0` | Set to `1` to skip OpenAI API calls and return mock summaries. |
+| `SMTP_HOST` | – | SMTP server host for sending verification emails. If unset, codes are logged. |
+| `SMTP_PORT` | `0` | SMTP server port. |
+| `SMTP_USER` | – | Username for SMTP authentication. |
+| `SMTP_PASS` | – | Password for SMTP authentication. |
+| `SMTP_TLS` | `0` | Set to `1` to enable STARTTLS when sending email. |
 
 ## Quick start
 
@@ -37,6 +44,13 @@ pip install -r backend/requirements.txt
 
 # set your OpenAI key
 export OPENAI_API_KEY=sk-...
+
+# (optional) set SMTP credentials for verification emails
+export SMTP_HOST=smtp.example.com
+export SMTP_PORT=587
+export SMTP_USER=apikey
+export SMTP_PASS=secret
+export SMTP_TLS=1
 
 # launch the API
 uvicorn backend.server.main:app --reload

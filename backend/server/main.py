@@ -15,7 +15,7 @@ import time
 import json
 import logging
 import traceback
-import random
+import secrets
 import smtplib
 from email.message import EmailMessage
 from typing import Optional, Dict, Any
@@ -178,9 +178,14 @@ class VerifyRequest(BaseModel):
     code: str
 
 
+def _generate_code() -> str:
+    """Generate a 6-digit verification code using a cryptographically strong RNG."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
 @app.post("/api/v1/register")
 def register(req: RegisterRequest):
-    code = f"{random.randint(0, 999999):06d}"
+    code = _generate_code()
     pending_codes[req.email] = {"code": code, "username": req.username}
     _send_verification_email(req.email, code)
     return {"ok": True}
