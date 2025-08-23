@@ -32,6 +32,9 @@ The backend uses environment variables for configuration:
 | `SMTP_USER` | – | Username for SMTP authentication. |
 | `SMTP_PASS` | – | Password for SMTP authentication. |
 | `SMTP_TLS` | `0` | Set to `1` to enable STARTTLS when sending email. |
+| `MAIL_API_KEY` | – | Resend API key for sending verification emails. Overrides SMTP settings when set. |
+| `MAIL_FROM` | `no-reply@mail.layscience.ai` | From address used when sending verification emails. |
+| `APP_NAME` | `LayScience` | Application name used in email subjects. |
 
 ## Quick start
 
@@ -45,7 +48,11 @@ pip install -r backend/requirements.txt
 # set your OpenAI key
 export OPENAI_API_KEY=sk-...
 
-# (optional) set SMTP credentials for verification emails
+# (optional) set Resend credentials for verification emails
+export MAIL_API_KEY=rk_test_yourkey
+export MAIL_FROM=no-reply@mail.layscience.ai
+export APP_NAME="LayScience"
+# or configure SMTP instead
 export SMTP_HOST=smtp.example.com
 export SMTP_PORT=587
 export SMTP_USER=apikey

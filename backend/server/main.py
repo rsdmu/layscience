@@ -65,15 +65,37 @@ pending_codes: Dict[str, Dict[str, Any]] = {}
 
 
 def _send_verification_email(to: str, code: str) -> None:
+    mail_api_key = os.getenv("MAIL_API_KEY")
+    if mail_api_key:
+        from_email = os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
+        app_name = os.getenv("APP_NAME", "LayScience")
+        try:
+            import resend
+
+            resend.api_key = mail_api_key
+            resend.Emails.send(
+                {
+                    "from": from_email,
+                    "to": [to],
+                    "subject": f"{app_name} verification code",
+                    "text": f"Your verification code is {code}",
+                }
+            )
+        except Exception:  # pragma: no cover - log but continue
+            logger.exception("Failed to send verification email via Resend")
+        return
+
     host = os.getenv("SMTP_HOST")
     # Default to the standard SMTP submission port if none provided
     port = int(os.getenv("SMTP_PORT") or 587)
     user = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASS")
 
+    app_name = os.getenv("APP_NAME", "LayScience")
+    from_email = user or os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
     msg = EmailMessage()
-    msg["Subject"] = "LayScience verification code"
-    msg["From"] = user or "no-reply@layscience"
+    msg["Subject"] = f"{app_name} verification code"
+    msg["From"] = from_email
     msg["To"] = to
     msg.set_content(f"Your verification code is {code}")
 
