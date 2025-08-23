@@ -111,11 +111,10 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto flex items-center justify-center"
+                className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto flex items-center justify-center border border-neutral-700 bg-neutral-800 rounded-full px-4 py-2 sm:h-full"
                 onClick={onStart}
                 disabled={busy}
               >
-                <span className="mr-2 inline-block h-2 w-2 rounded-full border border-current"></span>
                 Summarize
               </button>
             </div>
