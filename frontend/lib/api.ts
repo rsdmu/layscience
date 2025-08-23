@@ -8,18 +8,13 @@ const USE_PROXY =
 const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
 
 // Resolve the direct base (only used when not proxying).
-// Treat empty string as "unset" so we fall back to DEFAULT_DEV_BASE in development.
 const RAW_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "").trim();
 const DIRECT_BASE: string =
   RAW_BASE || (process.env.NODE_ENV === "development" ? DEFAULT_DEV_BASE : "");
 
 function api(path: string) {
   const p = path.startsWith("/") ? path : `/${path}`;
-
-  // If proxying is enabled, always hit the local proxy route.
   if (USE_PROXY) return `/api/proxy${p}`;
-
-  // Otherwise we must have a fully-qualified base URL.
   if (!DIRECT_BASE) {
     throw new Error(
       'API base not set. Define NEXT_PUBLIC_API_BASE (e.g. "https://layscience.onrender.com") or enable the proxy.'
@@ -30,8 +25,8 @@ function api(path: string) {
       `Invalid NEXT_PUBLIC_API_BASE: "${DIRECT_BASE}". It must be a full http(s) URL.`
     );
   }
-
-  return `${DIRECT_BASE}${p}`;
+  // avoid double slashes and handle query strings safely
+  return new URL(p, DIRECT_BASE).toString();
 }
 
 async function asJson(res: Response) {
@@ -56,15 +51,14 @@ export async function startJob({
   file?: File | null;
   length?: LengthOpt;
 }) {
-  // If file provided -> multipart; else JSON
   if (file) {
     const fd = new FormData();
     if (ref) fd.set("ref", ref);
     fd.set("length", length);
-    fd.set("pdf", file, file.name); // include filename
+    fd.set("pdf", file, file.name);
     const res = await fetch(api("/api/v1/summaries"), {
       method: "POST",
-      body: fd, // do NOT set Content-Type manually
+      body: fd,
       cache: "no-store",
     });
     return asJson(res);
