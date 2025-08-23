@@ -22,6 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${heading.variable} ${body.variable}`}>
       <body>
         {children}
+        <p className="fixed bottom-0 left-0 w-full pb-2 text-center text-xs text-neutral-400">
+          AI can make mistakes. LayScience is still in test.
+        </p>
         <ClientToaster />
       </body>
     </html>
