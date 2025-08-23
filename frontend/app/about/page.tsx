@@ -14,6 +14,13 @@ export default function AboutPage() {
       <p className="max-w-prose">
         You can run up to five summaries without an account; for more, please create a free account. If you’re able, consider chipping in to help cover hosting and API costs so the service stays available to people who can’t afford much. Created by Rashid Mushkani, 2025. © 2025 Rashid Mushkani. All rights reserved.
       </p>
+      <p className="max-w-prose mt-4">
+        Contact me at
+        <a href="mailto:rashidmushkani@gmail.com" className="underline ml-1">
+          rashidmushkani@gmail.com
+        </a>
+        for questions or feedback.
+      </p>
     </main>
   );
 }
