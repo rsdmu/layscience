@@ -19,7 +19,7 @@ export default function AboutPage() {
         <a href="mailto:rashidmushkani@gmail.com" className="underline ml-1">
           rashidmushkani@gmail.com 
         </a>
-        for questions or feedback.
+         for questions or feedback.
       </p>
     </main>
   );
