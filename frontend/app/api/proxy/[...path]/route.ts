@@ -124,4 +124,24 @@ async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
   }
 }
 
-export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE, handle as OPTIONS };
+export function GET(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
+export function POST(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
+export function PUT(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
+export function PATCH(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
+export function DELETE(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
+export function OPTIONS(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
+export function HEAD(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  return forward(req, ctx.params.path ?? []);
+}
