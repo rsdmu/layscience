@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { startJob, getJob, getSummary } from "@/lib/api";
 
+type HistoryItem = { type: "link" | "pdf"; value: string; name?: string };
+
 export default function Home() {
   const [ref, setRef] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -14,12 +16,22 @@ export default function Home() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [testCount, setTestCount] = useState(0);
   const [hasAccount, setHasAccount] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   function reset() {
     setJobId(null);
     setStatus("idle");
     setSummary("");
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+
+  function addToHistory(item: HistoryItem) {
+    setHistory((prev) => {
+      const newHistory = [item, ...prev];
+      const toPersist = newHistory.filter((h) => h.type === "link").slice(0, 20);
+      localStorage.setItem("history", JSON.stringify(toPersist));
+      return newHistory;
+    });
   }
 
   async function onStart() {
@@ -30,6 +42,12 @@ export default function Home() {
     try {
       setBusy(true);
       reset();
+      if (file) {
+        const url = URL.createObjectURL(file);
+        addToHistory({ type: "pdf", value: url, name: file.name });
+      } else if (ref) {
+        addToHistory({ type: "link", value: ref });
+      }
       const res = await startJob({ ref: ref || undefined, file, length: "default" });
       setJobId(res.id);
       setStatus("queued");
@@ -69,6 +87,10 @@ export default function Home() {
     setHasAccount(hc);
     const tc = parseInt(localStorage.getItem("testCount") || "0", 10);
     setTestCount(tc);
+    const hist = localStorage.getItem("history");
+    if (hist) {
+      try { setHistory(JSON.parse(hist)); } catch {}
+    }
   }, []);
 
   useEffect(() => {
@@ -119,6 +141,36 @@ export default function Home() {
               </button>
             </div>
             {file && <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>}
+            {history.length > 0 && (
+              <div className="mt-4 text-left text-sm text-neutral-400">
+                <p className="mb-2">Recent references:</p>
+                <ul className="space-y-1">
+                  {history.map((h, i) => (
+                    <li key={i}>
+                      {h.type === "pdf" ? (
+                        <a
+                          href={h.value}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-blue-400 hover:underline"
+                        >
+                          {h.name || "PDF"}
+                        </a>
+                      ) : (
+                        <a
+                          href={h.value.startsWith("http") ? h.value : `https://doi.org/${h.value}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-blue-400 hover:underline"
+                        >
+                          {h.value}
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
 
