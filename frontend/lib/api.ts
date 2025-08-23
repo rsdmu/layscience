@@ -3,7 +3,9 @@
 const DEFAULT_DEV_BASE = "http://127.0.0.1:8000";
 
 // If running on Vercel or you want to force proxy, USE_PROXY=true
-const USE_PROXY = process.env.NEXT_PUBLIC_USE_PROXY === "1";
+const USE_PROXY =
+  (typeof process !== "undefined" && !!process.env.VERCEL) ||
+  process.env.NEXT_PUBLIC_USE_PROXY === "1";
 
 // Fallback base for dev only. In prod with proxy, we’ll use relative /api/proxy.
 const DIRECT_BASE =
