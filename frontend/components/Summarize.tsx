@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { startJob, getJob, getSummary } from "@/lib/api";
 
@@ -121,7 +122,19 @@ export default function Summarize() {
           <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
           <p className="text-neutral-400 mb-8 text-sm sm:text-base">AI that turns research into clear, engaging summaries.</p>
           {!hasAccount && (
-            <p className="text-neutral-400 mb-4 text-sm">Tests remaining: {Math.max(0,5 - testCount)}</p>
+            testCount < 5 ? (
+              <p className="text-neutral-400 mb-4 text-sm">Tests remaining: {5 - testCount}</p>
+            ) : (
+              <div className="text-neutral-400 mb-4 text-sm flex flex-col items-center gap-2">
+                <p>Test limit reached.</p>
+                <Link
+                  href="/"
+                  className="rounded bg-white/10 px-3 py-1 text-neutral-100 hover:bg-white/20"
+                >
+                  Create account
+                </Link>
+              </div>
+            )
           )}
           <div className="w-full max-w-xl">
             <div
