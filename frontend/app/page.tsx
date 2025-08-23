@@ -70,7 +70,9 @@ export default function Home() {
         <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
         <p className="text-neutral-400 mb-8 text-sm sm:text-base">AI that turns research into clear, engaging summaries.</p>
         <div className="w-full max-w-xl">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30">
+          <div
+            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30"
+          >
             <div className="flex items-center gap-2 flex-1">
               <label className="cursor-pointer text-neutral-400 hover:text-white">
                 <input
