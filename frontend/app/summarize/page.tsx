@@ -113,11 +113,14 @@ export default function Home() {
 
   useEffect(() => {
     if (summary && !hasAccount) {
-      const newCount = testCount + 1;
-      setTestCount(newCount);
-      localStorage.setItem("testCount", newCount.toString());
+      setTestCount((prev) => {
+        const newCount = prev + 1;
+        localStorage.setItem("testCount", newCount.toString());
+        return newCount;
+      });
     }
   }, [summary, hasAccount, testCount]);
+
 
   return (
     <main className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100">
