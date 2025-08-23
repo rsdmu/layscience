@@ -17,6 +17,7 @@ export default function Home() {
   const [testCount, setTestCount] = useState(0);
   const [hasAccount, setHasAccount] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   function reset() {
     setJobId(null);
@@ -110,7 +111,26 @@ export default function Home() {
             <p className="text-neutral-400 mb-4 text-sm">Tests remaining: {Math.max(0,5 - testCount)}</p>
           )}
           <div className="w-full max-w-xl">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30">
+            <div
+              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30 ${dragOver ? 'ring-2 ring-white/30' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const dropped = e.dataTransfer.files?.[0];
+                if (dropped) {
+                  setFile(dropped);
+                  setRef("");
+                }
+              }}
+            >
               <div className="flex items-center gap-2 flex-1">
                 <label className="cursor-pointer text-neutral-400 hover:text-white">
                   <input
