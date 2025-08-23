@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { startJob, getJob, getSummary } from "@/lib/api";
+import ArxivSearch from "@/components/ArxivSearch";
 
 type HistoryItem = {
   type: "link" | "pdf";
@@ -47,7 +48,7 @@ export default function Summarize() {
     });
   }
 
-  async function onStart() {
+  async function onStart(overrideRef?: string) {
     if (!hasAccount && testCount >= 5) {
       toast.error("Test limit reached. Please create an account.");
       return;
@@ -55,15 +56,18 @@ export default function Summarize() {
     try {
       setBusy(true);
       reset();
-      if (file) {
+      const usedRef = overrideRef || ref;
+      if (overrideRef) {
+        addToHistory({ type: "link", value: overrideRef });
+      } else if (file) {
         const url = URL.createObjectURL(file);
         addToHistory({ type: "pdf", value: url, name: file.name });
       } else if (ref) {
         addToHistory({ type: "link", value: ref });
       }
       const res = await startJob({
-        ref: ref || undefined,
-        file,
+        ref: usedRef || undefined,
+        file: overrideRef ? undefined : file,
         length: mode === "detailed" ? "extended" : "default",
         mode,
         language,
@@ -233,7 +237,7 @@ export default function Summarize() {
               <button
                 type="button"
                 className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto flex items-center justify-center border border-neutral-700 bg-neutral-800 rounded-full px-4 py-2 sm:h-full"
-                onClick={onStart}
+                onClick={() => onStart()}
                 disabled={busy}
               >
                 Summarize
@@ -282,6 +286,13 @@ export default function Summarize() {
             <p className="text-center text-neutral-500">Generating summary...</p>
           ) : null}
         </section>
+        <ArxivSearch
+          onSelect={(url) => {
+            setRef(url);
+            setFile(null);
+            onStart(url);
+          }}
+        />
       </div>
     </main>
   );
