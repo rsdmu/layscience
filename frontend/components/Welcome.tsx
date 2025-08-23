@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -11,6 +12,7 @@ export default function Welcome() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const router = useRouter();
 
   async function onRegister() {
     try {
@@ -29,7 +31,7 @@ export default function Welcome() {
       localStorage.setItem("username", username);
       localStorage.setItem("email", email);
       toast.success("Account verified");
-      setStep("choice");
+      router.push("/summarize");
     } catch (e: any) {
       toast.error(e.message || "Verification failed");
     }
