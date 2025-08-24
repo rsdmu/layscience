@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import toast from "react-hot-toast";
+import { deleteAccount } from "@/lib/api";
 import FeedbackTab from "./Feedback/FeedbackTab";
 
 interface Props {
@@ -29,6 +31,19 @@ export default function UserPanel({ onClose, user }: Props) {
   type Tab = (typeof tabs)[number];
   const [tab, setTab] = useState<Tab>("Feedback");
 
+  async function handleDelete() {
+    try {
+      await deleteAccount();
+      localStorage.removeItem("username");
+      localStorage.removeItem("email");
+      localStorage.removeItem("hasAccount");
+      toast.success("Account deleted");
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete account");
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-start bg-black/30 px-4 pt-14 pb-4"
@@ -51,7 +66,7 @@ export default function UserPanel({ onClose, user }: Props) {
         </div>
         <div className="p-4 max-h-80 overflow-y-auto">
           {tab === "Feedback" && <FeedbackTab />}
-          {tab === "Account" && <AccountTab user={user} onDelete={() => {}} />}
+          {tab === "Account" && <AccountTab user={user} onDelete={handleDelete} />}
         </div>
       </div>
     </div>
