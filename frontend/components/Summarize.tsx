@@ -39,6 +39,7 @@ export default function Summarize() {
   const [showArxiv, setShowArxiv] = useState(false);
   const [arxivResults, setArxivResults] = useState<any[]>([]);
   const summaryRef = useRef<HTMLElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function reset() {
     setJobId(null);
@@ -221,8 +222,24 @@ export default function Summarize() {
   }, [summary]);
 
   return (
-    <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
-      <aside className="w-full max-w-xs max-h-dvh border-r border-neutral-800 p-4 text-sm text-neutral-400 flex flex-col">
+    <main className="min-h-dvh flex flex-col md:flex-row bg-neutral-950 text-neutral-100">
+      <aside
+        className={`${sidebarOpen ? "flex" : "hidden"} fixed inset-0 z-20 bg-neutral-950 p-4 text-sm text-neutral-400 flex-col overflow-y-auto md:static md:flex md:w-full md:max-w-xs md:max-h-dvh md:border-r md:border-neutral-800`}
+      >
+        <button
+          className="md:hidden self-end mb-4 text-neutral-400 hover:text-white"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+            <path
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              d="M6 6l12 12M6 18L18 6"
+            />
+          </svg>
+        </button>
         <div className="flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto">
             <p className="mb-2">Recent references:</p>
@@ -298,7 +315,21 @@ export default function Summarize() {
         </p>
       </aside>
       <div className="flex-1 flex flex-col relative">
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 left-4 flex gap-2">
+          <button
+            className="md:hidden rounded-full bg-neutral-900 border border-neutral-700 p-2 text-neutral-400 hover:text-white"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+              <path
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                d="M4 7h16M4 12h16M4 17h16"
+              />
+            </svg>
+          </button>
           <UserFab />
         </div>
         <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
