@@ -6,6 +6,13 @@
 html, body { height: 100%; }
 body { @apply bg-neutral-950 text-neutral-200 font-body antialiased; }
 
+/* Ensure media elements scale across devices */
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Subtle line grid like the Barabási piece */
 .bg-lines{
   background-image:

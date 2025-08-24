@@ -44,12 +44,12 @@ export default function Welcome() {
   }
 
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center bg-neutral-950 text-neutral-100 px-6 text-center">
+    <main className="min-h-dvh flex flex-col items-center justify-center bg-neutral-950 text-neutral-100 px-4 sm:px-6 text-center">
       <Image src="/icon.png" alt="Lay Science logo" width={96} height={96} className="mb-4 opacity-80" />
-      <h1 className="font-heading text-4xl mb-6">Lay Science</h1>
+      <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl mb-6">Lay Science</h1>
 
       {step === "choice" && (
-        <div className="space-y-4 w-full max-w-xs">
+        <div className="space-y-4 w-full max-w-xs sm:max-w-sm md:max-w-md">
           <button
             className="w-full rounded bg-white/10 hover:bg-white/20 py-2"
             onClick={() => setStep("register")}
@@ -64,9 +64,8 @@ export default function Welcome() {
           </Link>
         </div>
       )}
-
       {step === "register" && (
-        <div className="space-y-4 w-full max-w-xs">
+        <div className="space-y-4 w-full max-w-xs sm:max-w-sm md:max-w-md">
           <input
             className="w-full rounded bg-neutral-900 border border-neutral-700 px-3 py-2"
             placeholder="Username"
@@ -90,9 +89,8 @@ export default function Welcome() {
           </button>
         </div>
       )}
-
       {step === "verify" && (
-        <div className="space-y-4 w-full max-w-xs">
+        <div className="space-y-4 w-full max-w-xs sm:max-w-sm md:max-w-md">
           <input
             className="w-full rounded bg-neutral-900 border border-neutral-700 px-3 py-2"
             placeholder="Verification code"
