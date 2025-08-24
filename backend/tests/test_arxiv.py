@@ -57,3 +57,23 @@ def test_search_endpoint(monkeypatch):
     data = r.json()
     assert data["count"] == 1
     assert data["results"][0]["id"] == "1234.5678v1"
+
+
+def test_search_multi_word(monkeypatch):
+    captured = {}
+
+    def fake(url, params=None, timeout=None):
+        captured["params"] = params
+        class R:
+            status_code = 200
+            text = SAMPLE_FEED
+
+            def raise_for_status(self):
+                pass
+
+        return R()
+
+    monkeypatch.setattr(httpx, "get", fake)
+    res = arxiv.search("quantum gravity")
+    assert len(res) == 1
+    assert captured["params"]["search_query"] == "all:quantum gravity"
