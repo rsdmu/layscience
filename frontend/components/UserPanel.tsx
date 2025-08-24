@@ -8,14 +8,6 @@ interface Props {
   user: { username?: string; email?: string };
 }
 
-function SummariesTab() {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm text-neutral-300">Your recent summaries will appear here.</p>
-    </div>
-  );
-}
-
 function AccountTab({ user, onDelete }: { user: { username?: string; email?: string }; onDelete: () => void }) {
   return (
     <div className="space-y-4 text-sm">
@@ -33,9 +25,9 @@ function AccountTab({ user, onDelete }: { user: { username?: string; email?: str
 }
 
 export default function UserPanel({ onClose, user }: Props) {
-  const tabs = ["Summaries", "Feedback", "Account"] as const;
+  const tabs = ["Feedback", "Account"] as const;
   type Tab = (typeof tabs)[number];
-  const [tab, setTab] = useState<Tab>("Summaries");
+  const [tab, setTab] = useState<Tab>("Feedback");
 
   return (
     <div
@@ -60,7 +52,6 @@ export default function UserPanel({ onClose, user }: Props) {
           ))}
         </div>
         <div className="p-4 max-h-80 overflow-y-auto">
-          {tab === "Summaries" && <SummariesTab />}
           {tab === "Feedback" && <FeedbackTab />}
           {tab === "Account" && <AccountTab user={user} onDelete={() => {}} />}
         </div>
