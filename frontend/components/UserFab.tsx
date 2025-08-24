@@ -40,12 +40,7 @@ export default function UserFab() {
         {getInitials(user)}
       </button>
       {open && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)} />
-          <div className="absolute left-full ml-2 top-0 z-50">
-            <UserPanel user={user} />
-          </div>
-        </>
+        <UserPanel user={user} onClose={() => setOpen(false)} />
       )}
     </div>
   );
