@@ -40,7 +40,7 @@ export default function UserPanel({ onClose, user }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex" onClick={onClose}>
       <div
-        className="ml-4 mb-4 self-end w-full max-w-sm rounded-lg bg-neutral-900 text-neutral-100 shadow-lg"
+        className="ml-4 mb-4 self-end w-full max-w-xs rounded-lg bg-neutral-900 text-neutral-100 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex border-b border-neutral-700">

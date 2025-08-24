@@ -25,9 +25,7 @@ export default function Summarize() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [mode, setMode] = useState<"default" | "detailed" | "funny">("default");
-  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">(
-    "en"
-  );
+  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">("en");
   const [arxivMode, setArxivMode] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -142,7 +140,7 @@ export default function Summarize() {
           });
         }
       }
-    } catch (e) {
+    } catch {
       // ignore transient errors
     }
   }
@@ -168,13 +166,12 @@ export default function Summarize() {
         return newCount;
       });
     }
-  }, [summary, hasAccount, testCount]);
-
+  }, [summary, hasAccount]);
 
   return (
     <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
       {history.length > 0 && (
-        <aside className="w-64 max-h-dvh overflow-y-auto border-r border-neutral-800 p-4 text-sm text-neutral-400">
+        <aside className="w-full max-w-sm max-h-dvh overflow-y-auto border-r border-neutral-800 p-4 text-sm text-neutral-400">
           <p className="mb-2">Recent references:</p>
           <ul className="space-y-1">
             {history.map((h, i) => (
@@ -379,8 +376,8 @@ export default function Summarize() {
                 className="text-neutral-200 whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{
                   __html: summary
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n/g, '<br/>'),
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br/>"),
                 }}
               />
             </article>
@@ -392,4 +389,3 @@ export default function Summarize() {
     </main>
   );
 }
-
