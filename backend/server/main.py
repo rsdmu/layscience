@@ -66,9 +66,50 @@ logger = logging.getLogger("layscience")
 # FastAPI app
 app = FastAPI(title="LayScience Summariser API", version="1.0.0")
 
-# In-memory stores for demo account registration
-accounts: Dict[str, Dict[str, Any]] = {}
-pending_codes: Dict[str, Dict[str, Any]] = {}
+# Persistent stores for demo account registration ---------------------------------
+
+
+def _load_json(path: str) -> Dict[str, Any]:
+    """Load a JSON file into a dictionary. Returns empty dict if missing."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+            # Convert any ISO formatted datetimes back to datetime objects
+            for rec in data.values():
+                exp = rec.get("expires_at")
+                if isinstance(exp, str):
+                    try:
+                        rec["expires_at"] = datetime.fromisoformat(exp)
+                    except ValueError:
+                        rec["expires_at"] = datetime.utcnow()
+            return data
+    except FileNotFoundError:
+        return {}
+    except Exception:  # pragma: no cover - log but continue
+        logger.exception("Failed to load %s", path)
+        return {}
+
+
+def _save_json(path: str, payload: Dict[str, Any]) -> None:
+    """Atomically write a dictionary to a JSON file."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(
+            payload,
+            fh,
+            default=lambda o: o.isoformat() if isinstance(o, datetime) else o,
+        )
+    os.replace(tmp, path)
+
+
+DATA_DIR = os.getenv("DATA_DIR", "data")
+ACCOUNTS_PATH = os.path.join(DATA_DIR, "accounts.json")
+PENDING_PATH = os.path.join(DATA_DIR, "pending_codes.json")
+
+# Load any existing account data from disk
+accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
+pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
 
 
 def _send_verification_email(to: str, code: str) -> None:
@@ -248,6 +289,7 @@ def register(req: RegisterRequest):
         "attempts": 0,
         "resent": 0,
     }
+    _save_json(PENDING_PATH, pending_codes)
     _send_verification_email(req.email, code)
     resp = {"status": "sent"}
     if not os.getenv("SMTP_HOST"):
@@ -272,6 +314,7 @@ def resend(req: ResendRequest):
         }
         record = pending_codes[req.email]
     record["resent"] = record.get("resent", 0) + 1
+    _save_json(PENDING_PATH, pending_codes)
     _send_verification_email(req.email, code)
     resp = {"status": "resent"}
     if not os.getenv("SMTP_HOST"):
@@ -286,9 +329,12 @@ def verify(req: VerifyRequest):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     if not secrets.compare_digest(record["code_hash"], _hash_code(req.code)):
         record["attempts"] = record.get("attempts", 0) + 1
+        _save_json(PENDING_PATH, pending_codes)
         raise HTTPException(status_code=400, detail="Invalid code")
     accounts[req.email] = {"username": record.get("username")}
     pending_codes.pop(req.email, None)
+    _save_json(ACCOUNTS_PATH, accounts)
+    _save_json(PENDING_PATH, pending_codes)
     return {"status": "verified"}
 
 

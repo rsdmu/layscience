@@ -25,3 +25,5 @@ pnpm-debug.log*
 
 # --- App-local data ---
 uploads/
+data/accounts.json
+data/pending_codes.json
