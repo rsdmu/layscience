@@ -106,6 +106,7 @@ def _save_json(path: str, payload: Dict[str, Any]) -> None:
 DATA_DIR = os.getenv("DATA_DIR", "data")
 ACCOUNTS_PATH = os.path.join(DATA_DIR, "accounts.json")
 PENDING_PATH = os.path.join(DATA_DIR, "pending_codes.json")
+FEEDBACK_PATH = os.path.join(DATA_DIR, "feedback.json")
 
 # Load any existing account data from disk
 accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
@@ -336,6 +337,33 @@ def verify(req: VerifyRequest):
     _save_json(ACCOUNTS_PATH, accounts)
     _save_json(PENDING_PATH, pending_codes)
     return {"status": "verified"}
+
+
+class FeedbackSurvey(BaseModel):
+    ease: int = Field(..., ge=1, le=5)
+    clarity: int = Field(..., ge=1, le=5)
+    improvement: str = Field(..., max_length=100)
+
+
+@app.post("/api/v1/feedback/survey")
+def feedback_survey(survey: FeedbackSurvey):
+    """Persist a simple feedback survey submission."""
+    entry = {
+        "ease": survey.ease,
+        "clarity": survey.clarity,
+        "improvement": survey.improvement,
+        "ts": datetime.utcnow().isoformat(),
+    }
+    try:
+        with open(FEEDBACK_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        data = []
+    data.append(entry)
+    os.makedirs(os.path.dirname(FEEDBACK_PATH), exist_ok=True)
+    with open(FEEDBACK_PATH, "w", encoding="utf-8") as fh:
+        json.dump(data, fh)
+    return {"status": "ok"}
 
 
 @app.post(
