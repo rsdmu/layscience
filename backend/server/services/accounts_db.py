@@ -22,6 +22,7 @@ from sqlalchemy import (
     create_engine,
     text,
 )
+from sqlalchemy.engine import make_url
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -58,7 +59,14 @@ def init() -> None:
     global engine
     if not DATABASE_URL or engine is not None:
         return
-    engine = create_engine(DATABASE_URL, future=True)
+    # SQLAlchemy defaults to the legacy ``psycopg2`` driver when given a plain
+    # ``postgresql://`` URL.  The project depends on the modern ``psycopg``
+    # package instead, so ensure the driver name is adjusted automatically when
+    # no explicit driver is provided.
+    url = make_url(DATABASE_URL)
+    if url.drivername == "postgresql":
+        url = url.set(drivername="postgresql+psycopg")
+    engine = create_engine(url, future=True)
     with engine.begin() as conn:
         metadata.create_all(conn)
 
