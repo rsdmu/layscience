@@ -109,10 +109,18 @@ ACCOUNTS_PATH = os.path.join(DATA_DIR, "accounts.json")
 PENDING_PATH = os.path.join(DATA_DIR, "pending_codes.json")
 FEEDBACK_PATH = os.path.join(DATA_DIR, "feedback.json")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Load any existing account data from disk
-accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
-pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
+# Load any existing account data from storage
+if DATABASE_URL:
+    from .services import accounts_db
+
+    accounts_db.init()
+    accounts = accounts_db.load_accounts()
+    pending_codes = accounts_db.load_pending_codes()
+else:
+    accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
+    pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
 
 
 def _send_verification_email(to: str, code: str) -> None:
@@ -312,7 +320,10 @@ def register(req: RegisterRequest):
         "attempts": 0,
         "resent": 0,
     }
-    _save_json(PENDING_PATH, pending_codes)
+    if DATABASE_URL:
+        accounts_db.upsert_pending_code(req.email, pending_codes[req.email])
+    else:
+        _save_json(PENDING_PATH, pending_codes)
     _send_verification_email(req.email, code)
     resp = {"status": "sent"}
     if not os.getenv("SMTP_HOST"):
@@ -337,7 +348,10 @@ def resend(req: ResendRequest):
         }
         record = pending_codes[req.email]
     record["resent"] = record.get("resent", 0) + 1
-    _save_json(PENDING_PATH, pending_codes)
+    if DATABASE_URL:
+        accounts_db.upsert_pending_code(req.email, pending_codes[req.email])
+    else:
+        _save_json(PENDING_PATH, pending_codes)
     _send_verification_email(req.email, code)
     resp = {"status": "resent"}
     if not os.getenv("SMTP_HOST"):
@@ -352,12 +366,19 @@ def verify(req: VerifyRequest):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
     if not secrets.compare_digest(record["code_hash"], _hash_code(req.code)):
         record["attempts"] = record.get("attempts", 0) + 1
-        _save_json(PENDING_PATH, pending_codes)
+        if DATABASE_URL:
+            accounts_db.upsert_pending_code(req.email, record)
+        else:
+            _save_json(PENDING_PATH, pending_codes)
         raise HTTPException(status_code=400, detail="Invalid code")
     accounts[req.email] = {"username": record.get("username")}
     pending_codes.pop(req.email, None)
-    _save_json(ACCOUNTS_PATH, accounts)
-    _save_json(PENDING_PATH, pending_codes)
+    if DATABASE_URL:
+        accounts_db.create_account(req.email, accounts[req.email])
+        accounts_db.delete_pending_code(req.email)
+    else:
+        _save_json(ACCOUNTS_PATH, accounts)
+        _save_json(PENDING_PATH, pending_codes)
     return {"status": "verified"}
 
 
@@ -369,7 +390,10 @@ def delete_account(req: DeleteAccountRequest, request: Request):
     if req.email not in accounts:
         raise HTTPException(status_code=404, detail="Account not found")
     accounts.pop(req.email, None)
-    _save_json(ACCOUNTS_PATH, accounts)
+    if DATABASE_URL:
+        accounts_db.delete_account(req.email)
+    else:
+        _save_json(ACCOUNTS_PATH, accounts)
     return {"status": "deleted"}
 
 
