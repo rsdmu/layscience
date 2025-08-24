@@ -107,6 +107,7 @@ DATA_DIR = os.getenv("DATA_DIR", "data")
 ACCOUNTS_PATH = os.path.join(DATA_DIR, "accounts.json")
 PENDING_PATH = os.path.join(DATA_DIR, "pending_codes.json")
 FEEDBACK_PATH = os.path.join(DATA_DIR, "feedback.json")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
 
 # Load any existing account data from disk
 accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
