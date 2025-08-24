@@ -264,7 +264,7 @@ export default function Summarize() {
                   className="flex-1 bg-transparent text-neutral-200 placeholder:text-neutral-500 outline-none"
                   placeholder={
                     arxivMode
-                      ? "Type the keyword -> Arxiv search"
+                      ? "Type the keyword -> arXiv search"
                       : "Upload a paper or enter a DOI/URL"
                   }
                   value={ref}
@@ -294,7 +294,7 @@ export default function Summarize() {
                   setSearching(false);
                 }}
               >
-                Arxiv
+                arXiv
               </button>
             </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
