@@ -35,7 +35,7 @@ export default function UserFab() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed left-4 bottom-4 z-50 h-10 w-10 rounded-full flex items-center justify-center bg-neutral-800 text-white shadow-lg"
+        className="z-50 h-10 w-10 rounded-full flex items-center justify-center bg-neutral-800 text-white shadow-lg"
       >
         {getInitials(user)}
       </button>
