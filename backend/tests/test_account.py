@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 
 # Ensure repository root on path
@@ -32,3 +33,22 @@ def test_register_and_verify_flow(monkeypatch):
     assert email in main.accounts
     assert email not in main.pending_codes
     assert main.accounts[email]["username"] == username
+
+
+def test_delete_account_success(monkeypatch, tmp_path):
+    email = "bob@example.com"
+    monkeypatch.setattr(main, "accounts", {email: {"username": "bob"}})
+    monkeypatch.setattr(main, "ACCOUNTS_PATH", str(tmp_path / "accounts.json"))
+    resp = client.request("DELETE", "/api/v1/account", json={"email": email})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deleted"
+    assert email not in main.accounts
+    with open(tmp_path / "accounts.json", "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    assert email not in data
+
+
+def test_delete_account_missing(monkeypatch):
+    monkeypatch.setattr(main, "accounts", {})
+    resp = client.request("DELETE", "/api/v1/account", json={"email": "ghost@example.com"})
+    assert resp.status_code == 404

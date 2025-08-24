@@ -271,6 +271,10 @@ class ResendRequest(BaseModel):
     email: str
 
 
+class DeleteAccountRequest(BaseModel):
+    email: str
+
+
 def _generate_code() -> str:
     """Generate a 6-digit verification code using a cryptographically strong RNG."""
     return f"{secrets.randbelow(1_000_000):06d}"
@@ -340,17 +344,16 @@ def verify(req: VerifyRequest):
     return {"status": "verified"}
 
 
-@app.get("/api/v1/admin/users")
-def admin_users(request: Request):
-    """Return all registered accounts, protected by a simple admin token."""
-    expected = ADMIN_TOKEN
-    provided = request.headers.get("X-Admin-Token")
-    if not expected or not provided or not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return [
-        {"email": email, "username": info.get("username", "")}
-        for email, info in accounts.items()
-    ]
+@app.delete("/api/v1/account")
+def delete_account(req: DeleteAccountRequest, request: Request):
+    """Delete an existing account."""
+    # Optional auth header for future use
+    request.headers.get("Authorization")  # no-op
+    if req.email not in accounts:
+        raise HTTPException(status_code=404, detail="Account not found")
+    accounts.pop(req.email, None)
+    _save_json(ACCOUNTS_PATH, accounts)
+    return {"status": "deleted"}
 
 
 class FeedbackSurvey(BaseModel):
