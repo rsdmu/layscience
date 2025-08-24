@@ -635,7 +635,7 @@ def get_summary(job_id: str):
 
 
 @app.get("/api/v1/arxiv/search", tags=["arxiv"])
-def arxiv_search(q: str, max_results: int = 20):
+def arxiv_search(q: str, max_results: int = 50):
     """Search arXiv by title/keywords.
 
     Returns a JSON object with the original query, number of results and the

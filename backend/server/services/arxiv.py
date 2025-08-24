@@ -14,6 +14,7 @@ from __future__ import annotations
 import html
 import difflib
 import httpx
+import re
 from typing import List, Dict, Any
 from xml.etree import ElementTree as ET
 
@@ -42,6 +43,8 @@ def _parse_atom(xml_text: str) -> List[Dict[str, Any]]:
         arxiv_id = raw_id.rsplit("/", 1)[-1]
         title = entry.findtext("atom:title", default="", namespaces=ns)
         title = html.unescape(" ".join(title.split()))  # normalise whitespace
+        # Strip simple LaTeX math delimiters (e.g. $r$)
+        title = re.sub(r"\$(.+?)\$", r"\1", title).replace("$", "")
         published = entry.findtext("atom:published", default="", namespaces=ns)
         updated = entry.findtext("atom:updated", default="", namespaces=ns)
 
@@ -86,7 +89,7 @@ def _parse_atom(xml_text: str) -> List[Dict[str, Any]]:
     return results
 
 
-def search(query: str, max_results: int = 20) -> List[Dict[str, Any]]:
+def search(query: str, max_results: int = 50) -> List[Dict[str, Any]]:
     """Search arXiv for ``query`` and return normalised, ranked results.
 
     The initial request asks arXiv for a larger pool of results which are then
@@ -99,7 +102,7 @@ def search(query: str, max_results: int = 20) -> List[Dict[str, Any]]:
         Search query to run against arXiv's API.  It is sent as
         ``search_query=all:<query>``.
     max_results:
-        Maximum number of results to return after ranking (default 20).
+        Maximum number of results to return after ranking (default 50).
     """
     # httpx will handle URL encoding of the query parameters for us, so we
     # pass the raw query string directly.  Fetch a larger pool than requested
