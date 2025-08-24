@@ -38,9 +38,12 @@ export default function UserPanel({ onClose, user }: Props) {
   const [tab, setTab] = useState<Tab>("Summaries");
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-start bg-black/30 px-4 pt-14 pb-4"
+      onClick={onClose}
+    >
       <div
-        className="ml-4 mb-4 self-end w-full max-w-xs rounded-lg bg-neutral-900 text-neutral-100 shadow-lg"
+        className="w-full max-w-xs rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-100 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex border-b border-neutral-700">
@@ -48,7 +51,9 @@ export default function UserPanel({ onClose, user }: Props) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-sm ${tab === t ? "bg-neutral-800" : ""}`}
+              className={`flex-1 py-2 text-sm font-medium hover:bg-neutral-800 ${
+                tab === t ? "bg-neutral-800" : ""
+              }`}
             >
               {t}
             </button>
