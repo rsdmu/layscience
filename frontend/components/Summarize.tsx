@@ -181,10 +181,23 @@ export default function Summarize() {
                   </a>
                 ) : (
                   <a
-                    href={h.value.startsWith("http") ? h.value : `https://doi.org/${h.value}`}
+                    href={
+                      h.value.startsWith("http")
+                        ? h.value
+                        : `https://doi.org/${h.value}`
+                    }
                     target="_blank"
                     rel="noopener"
                     className="text-neutral-400 hover:underline block truncate"
+                    draggable
+                    onDragStart={(e) => {
+                      // Provide both plain text and URI formats for drop targets
+                      e.dataTransfer.setData("text/plain", h.value);
+                      const url = h.value.startsWith("http")
+                        ? h.value
+                        : `https://doi.org/${h.value}`;
+                      e.dataTransfer.setData("text/uri-list", url);
+                    }}
                   >
                     {h.title || h.value}
                   </a>
@@ -231,9 +244,16 @@ export default function Summarize() {
                 e.preventDefault();
                 setDragOver(false);
                 const dropped = e.dataTransfer.files?.[0];
+                const link =
+                  e.dataTransfer.getData("text/uri-list") ||
+                  e.dataTransfer.getData("text/plain");
                 if (dropped) {
                   setFile(dropped);
                   setRef("");
+                } else if (link) {
+                  setFile(null);
+                  setRef(link);
+                  onStart(link);
                 }
               }}
             >
