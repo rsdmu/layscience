@@ -59,7 +59,7 @@ export default function FeedbackTab() {
       </label>
 
       <label className="block">
-        <span className="mb-1 block">What's one improvement you'd like to see?</span>
+        <span className="mb-1 block">What&apos;s one improvement you&apos;d like to see?</span>
         <textarea
           value={improvement}
           onChange={(e) => setImprovement(e.target.value)}
