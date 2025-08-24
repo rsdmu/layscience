@@ -181,11 +181,11 @@ export async function createFeedbackReply(topicId: number, body: string) {
   return asJson(res);
 }
 
-export async function submitFeedbackSurvey(q1: string, q2: number, q3: string) {
+export async function submitFeedbackSurvey(ease: number, clarity: number, improvement: string) {
   const res = await fetch(api("/api/v1/feedback/survey"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ q1, q2, q3 }),
+    body: JSON.stringify({ ease, clarity, improvement }),
     cache: "no-store",
   });
   return asJson(res);
