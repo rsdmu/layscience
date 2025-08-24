@@ -14,6 +14,12 @@ type HistoryItem = {
   title?: string;
 };
 
+type SummaryItem = {
+  id: string;
+  title?: string;
+  content: string;
+};
+
 export default function Summarize() {
   const [ref, setRef] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -25,6 +31,7 @@ export default function Summarize() {
   const [testCount, setTestCount] = useState(0);
   const [hasAccount, setHasAccount] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [summaries, setSummaries] = useState<SummaryItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [mode, setMode] = useState<"default" | "detailed" | "funny">("default");
 
@@ -135,7 +142,17 @@ export default function Summarize() {
           pollRef.current = null;
         }
         const s = await getSummary(id);
-        if (s?.payload?.summary) setSummary(s.payload.summary);
+        if (s?.payload?.summary) {
+          setSummary(s.payload.summary);
+          setSummaries((prev) => {
+            const newSummaries = [
+              { id, title: s.payload.meta?.title, content: s.payload.summary },
+              ...prev,
+            ].slice(0, 20);
+            localStorage.setItem("summaries", JSON.stringify(newSummaries));
+            return newSummaries;
+          });
+        }
 
         if (s?.payload?.meta?.title) {
           setHistory((prev) => {
@@ -173,6 +190,12 @@ export default function Summarize() {
         setHistory(JSON.parse(hist));
       } catch {}
     }
+    const sum = localStorage.getItem("summaries");
+    if (sum) {
+      try {
+        setSummaries(JSON.parse(sum));
+      } catch {}
+    }
   }, []);
 
   // Increment test counter once per summary generation (avoid testCount in deps to prevent loop)
@@ -200,50 +223,75 @@ export default function Summarize() {
   return (
     <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
       <aside className="w-full max-w-xs max-h-dvh border-r border-neutral-800 p-4 text-sm text-neutral-400 flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <p className="mb-2">Recent references:</p>
-          {history.length > 0 ? (
-            <ul className="space-y-1">
-              {history.map((h, i) => (
-                <li key={i}>
-                  {h.type === "pdf" ? (
-                    <a
-                      href={h.value}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-neutral-400 hover:underline block truncate"
-                    >
-                      {h.title || h.name || "PDF"}
-                    </a>
-                  ) : (
-                    <a
-                      href={
-                        h.value.startsWith("http")
-                          ? h.value
-                          : `https://doi.org/${h.value}`
-                      }
-                      target="_blank"
-                      rel="noopener"
-                      className="text-neutral-400 hover:underline block truncate"
-                      draggable
-                      onDragStart={(e) => {
-                        // Provide both plain text and URI formats for drop targets
-                        e.dataTransfer.setData("text/plain", h.value);
-                        const url = h.value.startsWith("http")
-                          ? h.value
-                          : `https://doi.org/${h.value}`;
-                        e.dataTransfer.setData("text/uri-list", url);
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            <p className="mb-2">Recent references:</p>
+            {history.length > 0 ? (
+              <ul className="space-y-1">
+                {history.map((h, i) => (
+                  <li key={i}>
+                    {h.type === "pdf" ? (
+                      <a
+                        href={h.value}
+                        target="_blank"
+                        rel="noopener"
+                        className="text-neutral-400 hover:underline block truncate"
+                      >
+                        {h.title || h.name || "PDF"}
+                      </a>
+                    ) : (
+                      <a
+                        href={
+                          h.value.startsWith("http")
+                            ? h.value
+                            : `https://doi.org/${h.value}`
+                        }
+                        target="_blank"
+                        rel="noopener"
+                        className="text-neutral-400 hover:underline block truncate"
+                        draggable
+                        onDragStart={(e) => {
+                          // Provide both plain text and URI formats for drop targets
+                          e.dataTransfer.setData("text/plain", h.value);
+                          const url = h.value.startsWith("http")
+                            ? h.value
+                            : `https://doi.org/${h.value}`;
+                          e.dataTransfer.setData("text/uri-list", url);
+                        }}
+                      >
+                        {h.title || h.value}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-neutral-500">No recent references.</p>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto mt-4 border-t border-neutral-800 pt-4">
+            <p className="mb-2">Recent summaries:</p>
+            {summaries.length > 0 ? (
+              <ul className="space-y-1">
+                {summaries.map((s, i) => (
+                  <li key={i}>
+                    <button
+                      className="text-left text-neutral-400 hover:underline block truncate w-full"
+                      onClick={() => {
+                        setSummary(s.content);
+                        setJobId(s.id);
+                        setStatus("done");
                       }}
                     >
-                      {h.title || h.value}
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-neutral-500">No recent references.</p>
-          )}
+                      {s.title || `Summary ${i + 1}`}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-neutral-500">No recent summaries.</p>
+            )}
+          </div>
         </div>
         <p className="mt-4 text-xs text-neutral-500">
           AI can make mistakes. LayScience is still in test.
