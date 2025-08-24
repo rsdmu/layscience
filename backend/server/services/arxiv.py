@@ -14,7 +14,6 @@ from __future__ import annotations
 import httpx
 from typing import List, Dict, Any
 from xml.etree import ElementTree as ET
-from urllib.parse import quote_plus
 
 API_URL = "https://export.arxiv.org/api/query"
 
@@ -91,13 +90,17 @@ def search(query: str, max_results: int = 20) -> List[Dict[str, Any]]:
     Parameters
     ----------
     query:
-        Search query to run against arXiv's API.  It will be URL encoded
-        and passed as ``search_query=all:<query>``.
+        Search query to run against arXiv's API.  It is sent as
+        ``search_query=all:<query>``.
     max_results:
         Maximum number of results to retrieve (default 20).
     """
+    # httpx will handle URL encoding of the query parameters for us, so we
+    # pass the raw query string directly.  This allows multi-word searches or
+    # queries containing punctuation to work correctly without being
+    # double-encoded.
     params = {
-        "search_query": f"all:{quote_plus(query)}",
+        "search_query": f"all:{query}",
         "start": 0,
         "max_results": max_results,
     }
