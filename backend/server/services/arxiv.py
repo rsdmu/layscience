@@ -11,6 +11,8 @@ and returns a normalised list of result dictionaries containing
 
 from __future__ import annotations
 
+import html
+import difflib
 import httpx
 from typing import List, Dict, Any
 from xml.etree import ElementTree as ET
@@ -39,7 +41,7 @@ def _parse_atom(xml_text: str) -> List[Dict[str, Any]]:
         raw_id = entry.findtext("atom:id", default="", namespaces=ns)
         arxiv_id = raw_id.rsplit("/", 1)[-1]
         title = entry.findtext("atom:title", default="", namespaces=ns)
-        title = " ".join(title.split())  # normalise whitespace
+        title = html.unescape(" ".join(title.split()))  # normalise whitespace
         published = entry.findtext("atom:published", default="", namespaces=ns)
         updated = entry.findtext("atom:updated", default="", namespaces=ns)
 
@@ -85,7 +87,11 @@ def _parse_atom(xml_text: str) -> List[Dict[str, Any]]:
 
 
 def search(query: str, max_results: int = 20) -> List[Dict[str, Any]]:
-    """Search arXiv for ``query`` and return normalised results.
+    """Search arXiv for ``query`` and return normalised, ranked results.
+
+    The initial request asks arXiv for a larger pool of results which are then
+    ranked locally by string similarity so that the closest matches appear
+    first.  This helps surface the most relevant papers for fuzzy queries.
 
     Parameters
     ----------
@@ -93,21 +99,25 @@ def search(query: str, max_results: int = 20) -> List[Dict[str, Any]]:
         Search query to run against arXiv's API.  It is sent as
         ``search_query=all:<query>``.
     max_results:
-        Maximum number of results to retrieve (default 20).
+        Maximum number of results to return after ranking (default 20).
     """
     # httpx will handle URL encoding of the query parameters for us, so we
-    # pass the raw query string directly.  This allows multi-word searches or
-    # queries containing punctuation to work correctly without being
-    # double-encoded.
+    # pass the raw query string directly.  Fetch a larger pool than requested
+    # to allow for local ranking.
     params = {
         "search_query": f"all:{query}",
         "start": 0,
-        "max_results": max_results,
+        "max_results": max_results * 2,
     }
-    # Use httpx for consistency with the rest of the project
     r = httpx.get(API_URL, params=params, timeout=20.0)
     r.raise_for_status()
-    return _parse_atom(r.text)
+    results = _parse_atom(r.text)
+    q = query.lower()
+    results.sort(
+        key=lambda x: difflib.SequenceMatcher(None, q, x["title"].lower()).ratio(),
+        reverse=True,
+    )
+    return results[:max_results]
 
 
 def pdf_url(arxiv_id: str) -> str:

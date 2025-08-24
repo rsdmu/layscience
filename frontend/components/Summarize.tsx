@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { startJob, getJob, getSummary } from "@/lib/api";
-import ArxivSearch from "@/components/ArxivSearch";
+import { startJob, getJob, getSummary, searchArxiv } from "@/lib/api";
+// ArXiv search is now integrated directly into this component
 import UserFab from "@/components/UserFab";
 
 type HistoryItem = {
@@ -30,6 +30,7 @@ export default function Summarize() {
 
   const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">("en");
   const [showArxiv, setShowArxiv] = useState(false);
+  const [arxivResults, setArxivResults] = useState<any[]>([]);
   const summaryRef = useRef<HTMLElement | null>(null);
 
   function reset() {
@@ -94,9 +95,24 @@ export default function Summarize() {
 
   function handleArxivSelect(url: string) {
     setShowArxiv(false);
+    setArxivResults([]);
     setRef(url);
     setFile(null);
     onStart(url);
+  }
+
+  async function onSearchArxiv() {
+    if (!ref.trim()) return;
+    try {
+      setBusy(true);
+      const data = await searchArxiv(ref.trim());
+      setArxivResults(data.results || []);
+    } catch (e) {
+      setArxivResults([]);
+      toast.error("Search failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function poll(id: string) {
@@ -312,21 +328,23 @@ export default function Summarize() {
                 )}
                 <input
                   className="flex-1 bg-transparent text-neutral-200 placeholder:text-neutral-500 outline-none"
-                  placeholder="Upload a paper or enter a DOI/URL"
+                  placeholder={showArxiv ? "Search arXiv" : "Upload a paper or enter a DOI/URL"}
                   value={ref}
                   onChange={(e) => setRef(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") onStart();
+                    if (e.key === "Enter") {
+                      showArxiv ? onSearchArxiv() : onStart();
+                    }
                   }}
                 />
               </div>
               <button
                 type="button"
                 className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto flex items-center justify-center border border-neutral-700 bg-neutral-800 rounded-full px-4 py-2 sm:h-full"
-                onClick={() => onStart()}
+                onClick={() => (showArxiv ? onSearchArxiv() : onStart())}
                 disabled={busy}
               >
-                Summarize
+                {showArxiv ? "Search" : "Summarize"}
               </button>
               <button
                 type="button"
@@ -335,34 +353,37 @@ export default function Summarize() {
                   setShowArxiv((prev) => !prev);
                   setRef("");
                   setFile(null);
+                  setArxivResults([]);
                 }}
               >
                 arXiv
               </button>
             </div>
 
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <select
-                className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
-                value={mode}
-                onChange={(e) => setMode(e.target.value as any)}
-              >
-                <option value="default">Default</option>
-                <option value="detailed">Detailed</option>
-                <option value="funny">Funny</option>
-              </select>
-              <select
-                className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as any)}
-              >
-                <option value="en">English</option>
-                <option value="fa">Persian</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-                <option value="de">German</option>
-              </select>
-            </div>
+            {!showArxiv && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <select
+                  className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as any)}
+                >
+                  <option value="default">Default</option>
+                  <option value="detailed">Detailed</option>
+                  <option value="funny">Funny</option>
+                </select>
+                <select
+                  className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as any)}
+                >
+                  <option value="en">English</option>
+                  <option value="fa">Persian</option>
+                  <option value="fr">French</option>
+                  <option value="es">Spanish</option>
+                  <option value="de">German</option>
+                </select>
+              </div>
+            )}
 
             {!showArxiv && file && (
               <p className="mt-2 text-xs text-neutral-400">
@@ -372,27 +393,83 @@ export default function Summarize() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-4xl px-6 pb-16">
-          {showArxiv ? (
-            <ArxivSearch onSelect={handleArxivSelect} />
-          ) : summary ? (
-            <article
-              ref={summaryRef}
-              className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed"
-            >
-              <div
-                className="text-neutral-200 whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{
-                  __html: summary
-                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                    .replace(/\n/g, "<br/>"),
-                }}
-              />
-            </article>
-          ) : status === "running" || status === "queued" ? (
-            <p className="text-center text-neutral-500">Generating summary...</p>
-          ) : null}
-        </section>
+          <section className="mx-auto w-full max-w-4xl px-6 pb-16">
+            {showArxiv ? (
+              <div className="mt-4">
+                {busy && <p className="text-center text-neutral-500">Searching...</p>}
+                {arxivResults.length > 0 ? (
+                  <ul className="max-h-96 overflow-y-auto space-y-2">
+                    {arxivResults.map((r) => (
+                      <li
+                        key={r.id}
+                        className="flex items-start justify-between gap-2"
+                      >
+                        <a
+                          href={r.links?.html || `https://arxiv.org/abs/${r.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-1 text-neutral-200 hover:underline break-words"
+                        >
+                          {r.title}
+                        </a>
+                        <button
+                          onClick={() =>
+                            handleArxivSelect(
+                              r.links?.pdf ||
+                                r.links?.html ||
+                                `https://arxiv.org/abs/${r.id}`
+                            )
+                          }
+                          className="text-neutral-400 hover:text-white"
+                          aria-label="Summarize paper"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            className="h-4 w-4"
+                          >
+                            <rect
+                              x="3"
+                              y="4"
+                              width="18"
+                              height="16"
+                              rx="2"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              d="M8 8h8M8 12h8M8 16h5"
+                            />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : ref && !busy ? (
+                  <p className="text-center text-neutral-500">No results</p>
+                ) : null}
+              </div>
+            ) : summary ? (
+              <article
+                ref={summaryRef}
+                className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed"
+              >
+                <div
+                  className="text-neutral-200 whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{
+                    __html: summary
+                      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                      .replace(/\n/g, "<br/>"),
+                  }}
+                />
+              </article>
+            ) : status === "running" || status === "queued" ? (
+              <p className="text-center text-neutral-500">Generating summary...</p>
+            ) : null}
+          </section>
       </div>
     </main>
   );
