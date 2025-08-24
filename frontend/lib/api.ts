@@ -94,7 +94,7 @@ export async function getSummary(id: string) {
   return asJson(res);
 }
 
-export async function searchArxiv(query: string, maxResults = 20) {
+export async function searchArxiv(query: string, maxResults = 50) {
   const res = await fetch(
     api(`/api/v1/arxiv/search?q=${encodeURIComponent(query)}&max_results=${maxResults}`),
     { cache: "no-store" }

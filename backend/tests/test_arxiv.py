@@ -21,6 +21,21 @@ SAMPLE_FEED = """<?xml version='1.0' encoding='UTF-8'?>
   </entry>
 </feed>"""
 
+SAMPLE_FEED_DOLLAR = """<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns='http://www.w3.org/2005/Atom'>
+  <entry>
+    <id>http://arxiv.org/abs/9999.9999v1</id>
+    <title>Cohen-Macaulay $r$-partite graphs</title>
+    <summary>Example</summary>
+    <published>2020-01-01T00:00:00Z</published>
+    <updated>2020-01-02T00:00:00Z</updated>
+    <author><name>A</name></author>
+    <link rel='alternate' type='text/html' href='http://arxiv.org/abs/9999.9999v1'/>
+    <link rel='related' type='application/pdf' href='http://arxiv.org/pdf/9999.9999v1'/>
+    <category term='cs.AI' scheme='http://arxiv.org/schemas/atom'/>
+  </entry>
+</feed>"""
+
 SAMPLE_FEED_MULTI = """<?xml version='1.0' encoding='UTF-8'?>
 <feed xmlns='http://www.w3.org/2005/Atom'>
   <entry>
@@ -69,6 +84,24 @@ def test_search_parses(monkeypatch):
     assert item["authors"] == ["John Doe", "Jane Smith"]
     assert item["links"]["pdf"].endswith("1234.5678v1")
     assert item["categories"] == ["cs.AI"]
+
+
+def fake_get_dollar(url, params=None, timeout=None):
+    class R:
+        status_code = 200
+        text = SAMPLE_FEED_DOLLAR
+
+        def raise_for_status(self):
+            pass
+
+    return R()
+
+
+def test_search_strips_latex(monkeypatch):
+    monkeypatch.setattr(httpx, "get", fake_get_dollar)
+    res = arxiv.search("cohen")
+    assert len(res) == 1
+    assert res[0]["title"] == "Cohen-Macaulay r-partite graphs"
 
 
 def test_pdf_url():

@@ -446,56 +446,62 @@ export default function Summarize() {
               <div className="mt-4">
                 {busy && <p className="text-center text-neutral-500">Searching...</p>}
                 {arxivResults.length > 0 ? (
-                  <ul className="max-h-96 overflow-y-auto space-y-2">
-                    {arxivResults.map((r) => (
-                      <li
-                        key={r.id}
-                        className="flex items-start justify-between gap-2"
-                      >
-                        <a
-                          href={r.links?.html || `https://arxiv.org/abs/${r.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex-1 text-neutral-200 hover:underline break-words"
+                  <div>
+                    <div className="flex items-center justify-between text-sm text-neutral-400 px-1 mb-2">
+                      <span>Search Results</span>
+                      <span>Summrize</span>
+                    </div>
+                    <ul className="max-h-96 overflow-y-auto space-y-2">
+                      {arxivResults.map((r) => (
+                        <li
+                          key={r.id}
+                          className="flex items-start justify-between gap-2"
                         >
-                          {r.title}
-                        </a>
-                        <button
-                          onClick={() =>
-                            handleArxivSelect(
-                              r.links?.pdf ||
-                                r.links?.html ||
-                                `https://arxiv.org/abs/${r.id}`
-                            )
-                          }
-                          className="text-neutral-400 hover:text-white"
-                          aria-label="Summarize paper"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            className="h-4 w-4"
+                          <a
+                            href={r.links?.html || `https://arxiv.org/abs/${r.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex-1 text-neutral-200 hover:underline break-words"
                           >
-                            <rect
-                              x="3"
-                              y="4"
-                              width="18"
-                              height="16"
-                              rx="2"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            />
-                            <path
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              d="M8 8h8M8 12h8M8 16h5"
-                            />
-                          </svg>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                            {r.title.replace(/\$/g, "")}
+                          </a>
+                          <button
+                            onClick={() =>
+                              handleArxivSelect(
+                                r.links?.pdf ||
+                                  r.links?.html ||
+                                  `https://arxiv.org/abs/${r.id}`
+                              )
+                            }
+                            className="text-neutral-400 hover:text-white"
+                            aria-label="Summarize paper"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              className="h-4 w-4"
+                            >
+                              <rect
+                                x="3"
+                                y="4"
+                                width="18"
+                                height="16"
+                                rx="2"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                              />
+                              <path
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                d="M8 8h8M8 12h8M8 16h5"
+                              />
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : ref && !busy ? (
                   <p className="text-center text-neutral-500">No results</p>
                 ) : null}
