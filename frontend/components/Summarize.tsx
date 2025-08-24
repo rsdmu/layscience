@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { startJob, getJob, getSummary, searchArxiv } from "@/lib/api";
 // ArXiv search is now integrated directly into this component
 import UserFab from "@/components/UserFab";
+import LoadingMessage from "@/components/LoadingMessage";
 
 type HistoryItem = {
   type: "link" | "pdf";
@@ -505,7 +506,9 @@ export default function Summarize() {
           <section className="mx-auto w-full max-w-4xl px-6 pb-16">
             {showArxiv ? (
               <div className="mt-4">
-                {busy && <p className="text-center text-neutral-500">Searching...</p>}
+                {busy && (
+                  <LoadingMessage message="Searching for relevant papers..." />
+                )}
                 {arxivResults.length > 0 ? (
                   <div>
                     <div className="flex items-center justify-between text-sm text-neutral-400 px-1 mb-2">
@@ -582,7 +585,7 @@ export default function Summarize() {
                 />
               </article>
             ) : status === "running" || status === "queued" ? (
-              <p className="text-center text-neutral-500">Generating summary...</p>
+              <LoadingMessage message="Preparing your summary. Please wait..." />
             ) : null}
           </section>
       </div>
