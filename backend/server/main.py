@@ -36,6 +36,7 @@ from .services import (
     fetcher,
     errors as err,
     arxiv,
+    forum,
 )
 
 # ----------------------------------------------------------------------------
@@ -376,12 +377,46 @@ def delete_account(req: DeleteAccountRequest, request: Request):
 def admin_users(request: Request):
     """Return all registered users if authorized."""
     token = request.headers.get("X-Admin-Token")
-    if not token or token != ADMIN_TOKEN:
+    # Use constant‑time comparison and also protect the "ADMIN_TOKEN unset" case.
+    if not ADMIN_TOKEN or not secrets.compare_digest(token or "", ADMIN_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return [
         {"email": email, "username": rec.get("username", "")}
         for email, rec in accounts.items()
     ]
+
+# Feedback forum models ------------------------------------------------------
+
+class FeedbackTopic(BaseModel):
+    title: str = Field(..., max_length=100)
+    body: str = Field(..., max_length=1000)
+    email: Optional[str] = None
+
+class FeedbackReply(BaseModel):
+    body: str = Field(..., max_length=1000)
+    email: Optional[str] = None
+
+@app.get("/api/v1/feedback/topics")
+def list_feedback_topics(page: int = 1):
+    """Return paginated list of feedback topics."""
+    return {"topics": forum.list_topics(page)}
+
+@app.post("/api/v1/feedback/topics")
+def create_feedback_topic(topic: FeedbackTopic):
+    """Create a new feedback topic."""
+    topic_id = forum.create_topic(topic.title, topic.body, topic.email)
+    return {"id": topic_id, "title": topic.title, "body": topic.body, "email": topic.email}
+
+@app.get("/api/v1/feedback/topics/{topic_id}/replies")
+def list_feedback_replies(topic_id: int):
+    """List replies for a given topic."""
+    return {"replies": forum.list_replies(topic_id)}
+
+@app.post("/api/v1/feedback/topics/{topic_id}/replies")
+def create_feedback_reply(topic_id: int, reply: FeedbackReply):
+    """Add a reply to a feedback topic."""
+    reply_id = forum.create_reply(topic_id, reply.body, reply.email)
+    return {"id": reply_id, "topic_id": topic_id, "body": reply.body, "email": reply.email}
 
 
 class FeedbackSurvey(BaseModel):
