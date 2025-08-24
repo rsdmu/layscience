@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { startJob, getJob, getSummary, searchArxiv } from "@/lib/api";
+import { startJob, getJob, getSummary } from "@/lib/api";
+import ArxivSearch from "@/components/ArxivSearch";
 
 type HistoryItem = {
   type: "link" | "pdf";
@@ -28,8 +29,7 @@ export default function Summarize() {
   const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">(
     "en"
   );
-  const [arxivMode, setArxivMode] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showArxiv, setShowArxiv] = useState(false);
   const summaryRef = useRef<HTMLDivElement | null>(null);
 
   function reset() {
@@ -86,22 +86,8 @@ export default function Summarize() {
     }
   }
 
-  async function onSearch() {
-    if (!ref.trim()) return;
-    try {
-      setBusy(true);
-      const res = await searchArxiv(ref.trim());
-      setSearchResults(res.results || []);
-    } catch (e: any) {
-      toast.error(e.message || "Search failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function handleSelect(url: string) {
-    setArxivMode(false);
-    setSearchResults([]);
+  function handleArxivSelect(url: string) {
+    setShowArxiv(false);
     setRef(url);
     setFile(null);
     onStart(url);
@@ -228,17 +214,17 @@ export default function Summarize() {
             <div
               className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30 ${dragOver ? 'ring-2 ring-white/30' : ''}`}
               onDragOver={(e) => {
-                if (arxivMode) return;
+                if (showArxiv) return;
                 e.preventDefault();
                 setDragOver(true);
               }}
               onDragLeave={(e) => {
-                if (arxivMode) return;
+                if (showArxiv) return;
                 e.preventDefault();
                 setDragOver(false);
               }}
               onDrop={(e) => {
-                if (arxivMode) return;
+                if (showArxiv) return;
                 e.preventDefault();
                 setDragOver(false);
                 const dropped = e.dataTransfer.files?.[0];
@@ -249,7 +235,7 @@ export default function Summarize() {
               }}
             >
               <div className="flex items-center gap-2 flex-1">
-                {!arxivMode && (
+                {!showArxiv && (
                   <label className="cursor-pointer text-neutral-400 hover:text-white">
                     <input
                       type="file"
@@ -264,34 +250,29 @@ export default function Summarize() {
                 )}
                 <input
                   className="flex-1 bg-transparent text-neutral-200 placeholder:text-neutral-500 outline-none"
-                  placeholder={
-                    arxivMode
-                      ? "Type the keyword -> Arxiv search"
-                      : "Upload a paper or enter a DOI/URL"
-                  }
+                  placeholder="Upload a paper or enter a DOI/URL"
                   value={ref}
                   onChange={(e) => setRef(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') (arxivMode ? onSearch() : onStart());
+                    if (e.key === 'Enter') onStart();
                   }}
                 />
               </div>
               <button
                 type="button"
                 className="text-neutral-400 hover:text-white disabled:opacity-50 w-full sm:w-auto flex items-center justify-center border border-neutral-700 bg-neutral-800 rounded-full px-4 py-2 sm:h-full"
-                onClick={() => (arxivMode ? onSearch() : onStart())}
+                onClick={() => onStart()}
                 disabled={busy}
               >
-                {arxivMode ? "Search" : "Summarize"}
+                Summarize
               </button>
               <button
                 type="button"
-                className={`w-full sm:w-auto flex items-center justify-center border border-neutral-700 rounded-full px-4 py-2 sm:h-full ${arxivMode ? 'bg-white text-neutral-800' : 'text-neutral-400 hover:text-white bg-neutral-800'}`}
+                className="w-full sm:w-auto flex items-center justify-center border border-neutral-700 rounded-full px-4 py-2 sm:h-full text-neutral-400 hover:text-white bg-neutral-800"
                 onClick={() => {
-                  setArxivMode((prev) => !prev);
+                  setShowArxiv((prev) => !prev);
                   setRef("");
                   setFile(null);
-                  setSearchResults([]);
                 }}
               >
                 Arxiv
@@ -319,55 +300,15 @@ export default function Summarize() {
                 <option value="de">German</option>
               </select>
             </div>
-            {!arxivMode && file && (
+            {!showArxiv && file && (
               <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>
             )}
           </div>
         </section>
 
         <section className="mx-auto w-full max-w-4xl px-6 pb-16">
-          {arxivMode ? (
-            searchResults.length > 0 ? (
-              <ul className="space-y-4">
-                {searchResults.map((r) => (
-                  <li
-                    key={r.id}
-                    className="border border-neutral-700 rounded-lg p-4 bg-neutral-900/60"
-                  >
-                    <h3 className="text-neutral-100 font-semibold">{r.title}</h3>
-                    {r.authors && (
-                      <p className="text-neutral-400 text-sm">
-                        {(r.authors as string[]).join(", ")}
-                      </p>
-                    )}
-                    {r.categories && (
-                      <p className="text-neutral-500 text-xs mb-2">
-                        {(r.categories as string[]).join(", ")}
-                      </p>
-                    )}
-                    <div className="flex gap-2">
-                      <a
-                        href={r.links?.html || `https://arxiv.org/abs/${r.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 text-sm underline"
-                      >
-                        View
-                      </a>
-                      {r.links?.pdf && (
-                        <button
-                          type="button"
-                          className="text-neutral-200 text-sm border border-neutral-700 rounded px-2 py-1 hover:bg-neutral-800"
-                          onClick={() => handleSelect(r.links.pdf)}
-                        >
-                          Summarize
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : null
+          {showArxiv ? (
+            <ArxivSearch onSelect={handleArxivSelect} />
           ) : summary ? (
             <article
               ref={summaryRef}
