@@ -45,13 +45,12 @@ export default function Welcome() {
 
   return (
     <main className="relative min-h-dvh flex flex-col items-center justify-center bg-neutral-950 text-neutral-100 px-4 sm:px-6 text-center overflow-hidden">
-      <video
-        className="absolute inset-0 w-full h-full object-cover opacity-40 -z-10"
-        autoPlay
-        loop
-        muted
-        playsInline
-        src="/video.mp4"
+      <Image
+        src="/gif.gif"
+        alt="Animated background"
+        fill
+        priority
+        className="object-cover opacity-40 -z-10"
       />
       <Image src="/icon.png" alt="Lay Science logo" width={96} height={96} className="mb-4 opacity-80" />
       <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl mb-6">Lay Science</h1>
