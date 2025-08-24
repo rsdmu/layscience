@@ -143,7 +143,7 @@ export default function Summarize() {
   return (
     <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
       {history.length > 0 && (
-        <aside className="w-64 max-h-dvh overflow-y-auto border-r border-neutral-800 p-4 text-sm text-neutral-400">
+        <aside className="w-full max-w-sm max-h-dvh overflow-y-auto border-r border-neutral-800 p-4 text-sm text-neutral-400">
           <p className="mb-2">Recent references:</p>
           <ul className="space-y-1">
             {history.map((h, i) => (
