@@ -25,11 +25,11 @@ export default function Summarize() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [mode, setMode] = useState<"default" | "detailed" | "funny">("default");
-  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">(
-    "en"
-  );
+  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">("en");
   const [arxivMode, setArxivMode] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchDone, setSearchDone] = useState(false);
 
   function reset() {
     setJobId(null);
@@ -89,18 +89,25 @@ export default function Summarize() {
     if (!ref.trim()) return;
     try {
       setBusy(true);
+      setSearching(true);
+      setSearchDone(false);
       const res = await searchArxiv(ref.trim());
       setSearchResults(res.results || []);
     } catch (e: any) {
       toast.error(e.message || "Search failed");
+      setSearchResults([]);
     } finally {
       setBusy(false);
+      setSearching(false);
+      setSearchDone(true);
     }
   }
 
   function handleSelect(url: string) {
     setArxivMode(false);
     setSearchResults([]);
+    setSearchDone(false);
+    setSearching(false);
     setRef(url);
     setFile(null);
     onStart(url);
@@ -133,7 +140,7 @@ export default function Summarize() {
           });
         }
       }
-    } catch (e) {
+    } catch {
       // ignore transient errors
     }
   }
@@ -159,8 +166,7 @@ export default function Summarize() {
         return newCount;
       });
     }
-  }, [summary, hasAccount, testCount]);
-
+  }, [summary, hasAccount]);
 
   return (
     <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
@@ -255,7 +261,7 @@ export default function Summarize() {
                   className="flex-1 bg-transparent text-neutral-200 placeholder:text-neutral-500 outline-none"
                   placeholder={
                     arxivMode
-                      ? "Type the keyword -> Arxiv search"
+                      ? "Type the keyword -> arXiv search"
                       : "Upload a paper or enter a DOI/URL"
                   }
                   value={ref}
@@ -281,9 +287,11 @@ export default function Summarize() {
                   setRef("");
                   setFile(null);
                   setSearchResults([]);
+                  setSearchDone(false);
+                  setSearching(false);
                 }}
               >
-                Arxiv
+                arXiv
               </button>
             </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -316,7 +324,9 @@ export default function Summarize() {
 
         <section className="mx-auto w-full max-w-4xl px-6 pb-16">
           {arxivMode ? (
-            searchResults.length > 0 ? (
+            searching ? (
+              <p className="text-center text-neutral-500">Searching...</p>
+            ) : searchResults.length > 0 ? (
               <ul className="space-y-4">
                 {searchResults.map((r) => (
                   <li
@@ -356,6 +366,8 @@ export default function Summarize() {
                   </li>
                 ))}
               </ul>
+            ) : searchDone ? (
+              <p className="text-center text-neutral-500">No results found.</p>
             ) : null
           ) : summary ? (
             <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
@@ -364,8 +376,8 @@ export default function Summarize() {
                 className="text-neutral-200 whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{
                   __html: summary
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n/g, '<br/>'),
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br/>"),
                 }}
               />
             </article>
@@ -377,4 +389,3 @@ export default function Summarize() {
     </main>
   );
 }
-
