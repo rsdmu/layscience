@@ -62,6 +62,14 @@ export default function Summarize() {
     });
   }
 
+  function deleteSummary(id: string) {
+    setSummaries((prev) => {
+      const newSummaries = prev.filter((s) => s.id !== id);
+      localStorage.setItem("summaries", JSON.stringify(newSummaries));
+      return newSummaries;
+    });
+  }
+
   async function onStart(overrideRef?: string) {
     if (!hasAccount && testCount >= 5) {
       toast.error("Test limit reached. Please create an account.");
@@ -146,9 +154,10 @@ export default function Summarize() {
         if (s?.payload?.summary) {
           setSummary(s.payload.summary);
           setSummaries((prev) => {
+            const existing = prev.filter((p) => p.id !== id);
             const newSummaries = [
               { id, title: s.payload.meta?.title, content: s.payload.summary },
-              ...prev,
+              ...existing,
             ].slice(0, 20);
             localStorage.setItem("summaries", JSON.stringify(newSummaries));
             return newSummaries;
@@ -194,7 +203,14 @@ export default function Summarize() {
     const sum = localStorage.getItem("summaries");
     if (sum) {
       try {
-        setSummaries(JSON.parse(sum));
+        const parsed: SummaryItem[] = JSON.parse(sum);
+        const unique = parsed.filter(
+          (s, i, arr) => arr.findIndex((t) => t.id === s.id) === i
+        );
+        setSummaries(unique);
+        if (unique.length !== parsed.length) {
+          localStorage.setItem("summaries", JSON.stringify(unique));
+        }
       } catch {}
     }
   }, []);
@@ -286,14 +302,14 @@ export default function Summarize() {
               <p className="text-neutral-500">No recent references.</p>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto mt-4 border-t border-neutral-800 pt-4">
+          <div className="flex-1 mt-4 border-t border-neutral-800 pt-4">
             <p className="mb-2">Recent summaries:</p>
             {summaries.length > 0 ? (
-              <ul className="space-y-1">
+              <ul className="space-y-1 max-h-60 overflow-y-auto">
                 {summaries.map((s, i) => (
-                  <li key={i}>
+                  <li key={s.id} className="flex items-center">
                     <button
-                      className="text-left text-neutral-400 hover:underline block truncate w-full"
+                      className="text-left text-neutral-400 hover:underline block truncate w-full flex-1"
                       onClick={() => {
                         setSummary(s.content);
                         setJobId(s.id);
@@ -301,6 +317,20 @@ export default function Summarize() {
                       }}
                     >
                       {s.title || `Summary ${i + 1}`}
+                    </button>
+                    <button
+                      className="ml-2 text-neutral-500 hover:text-white"
+                      onClick={() => deleteSummary(s.id)}
+                      aria-label="Delete summary"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+                        <path
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          d="M6 6l12 12M6 18L18 6"
+                        />
+                      </svg>
                     </button>
                   </li>
                 ))}
