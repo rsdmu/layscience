@@ -2,7 +2,6 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import ClientToaster from "@/components/ClientToaster";
 import AboutHomeLink from "@/components/AboutHomeLink";
-import UserFab from "@/components/UserFab";
 import { Bebas_Neue, Inter } from "next/font/google";
 
 const heading = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-heading" });
@@ -47,12 +46,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body>
           <AboutHomeLink />
           {children}
-          <div className="fixed bottom-0 left-0 flex flex-col items-center p-4 gap-2">
-            <UserFab />
-            <p className="text-center text-xs text-neutral-400">
-              AI can make mistakes. LayScience is still in test.
-            </p>
-          </div>
           <ClientToaster />
         </body>
       </html>
