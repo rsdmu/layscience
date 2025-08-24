@@ -369,7 +369,6 @@ export default function Summarize() {
               ref={summaryRef}
               className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed"
             >
-              <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
               <div
                 className="text-neutral-200 whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{
