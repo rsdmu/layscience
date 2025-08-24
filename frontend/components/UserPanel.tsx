@@ -4,8 +4,8 @@ import { useState } from "react";
 import FeedbackTab from "./Feedback/FeedbackTab";
 
 interface Props {
-  onClose: () => void;
   user: { username?: string; email?: string };
+  onClose: () => void;
 }
 
 function AccountTab({ user, onDelete }: { user: { username?: string; email?: string }; onDelete: () => void }) {
@@ -43,9 +43,7 @@ export default function UserPanel({ onClose, user }: Props) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-sm font-medium hover:bg-neutral-800 ${
-                tab === t ? "bg-neutral-800" : ""
-              }`}
+              className={`flex-1 py-2 text-sm font-medium hover:bg-neutral-800 ${tab === t ? "bg-neutral-800" : ""}`}
             >
               {t}
             </button>
@@ -59,4 +57,3 @@ export default function UserPanel({ onClose, user }: Props) {
     </div>
   );
 }
-

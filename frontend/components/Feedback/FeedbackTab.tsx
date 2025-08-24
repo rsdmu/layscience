@@ -70,12 +70,14 @@ export default function FeedbackTab() {
 
       {error && <p className="text-red-400">{error}</p>}
 
-      <button
-        type="submit"
-        className="rounded bg-blue-600/20 px-3 py-2 text-blue-200 hover:bg-blue-600/30"
-      >
-        Submit
-      </button>
+      <div className="text-right">
+        <button
+          type="submit"
+          className="rounded bg-blue-600/20 px-3 py-2 text-blue-200 hover:bg-blue-600/30"
+        >
+          Submit
+        </button>
+      </div>
     </form>
   );
 }
