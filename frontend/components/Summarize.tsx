@@ -30,6 +30,7 @@ export default function Summarize() {
   );
   const [arxivMode, setArxivMode] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
 
   function reset() {
     setJobId(null);
@@ -160,6 +161,16 @@ export default function Summarize() {
       });
     }
   }, [summary, hasAccount, testCount]);
+
+  useEffect(() => {
+    if (summary && summaryRef.current) {
+      summaryRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "center",
+      });
+    }
+  }, [summary]);
 
 
   return (
@@ -358,7 +369,10 @@ export default function Summarize() {
               </ul>
             ) : null
           ) : summary ? (
-            <article className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed">
+            <article
+              ref={summaryRef}
+              className="rounded-2xl border border-white/10 bg-neutral-950/60 p-6 leading-relaxed"
+            >
               <h2 className="font-heading text-2xl mb-3 text-white">Summary</h2>
               <div
                 className="text-neutral-200 whitespace-pre-wrap"
