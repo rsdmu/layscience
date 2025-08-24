@@ -38,6 +38,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -46,10 +47,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <body>
           <AboutHomeLink />
           {children}
-          <UserFab />
-          <p className="fixed bottom-0 left-0 w-full pb-2 text-center text-xs text-neutral-400">
-            AI can make mistakes. LayScience is still in test.
-          </p>
+          <div className="fixed bottom-0 left-0 flex flex-col items-center p-4 gap-2">
+            <UserFab />
+            <p className="text-center text-xs text-neutral-400">
+              AI can make mistakes. LayScience is still in test.
+            </p>
+          </div>
           <ClientToaster />
         </body>
       </html>

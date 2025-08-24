@@ -26,17 +26,19 @@ export default function Summarize() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [mode, setMode] = useState<"default" | "detailed" | "funny">("default");
-  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">(
-    "en"
-  );
+
+  const [language, setLanguage] = useState<"en" | "fa" | "fr" | "es" | "de">("en");
   const [showArxiv, setShowArxiv] = useState(false);
-  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const summaryRef = useRef<HTMLElement | null>(null);
 
   function reset() {
     setJobId(null);
     setStatus("idle");
     setSummary("");
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   }
 
   function addToHistory(item: HistoryItem) {
@@ -59,6 +61,7 @@ export default function Summarize() {
       setBusy(true);
       reset();
       const usedRef = overrideRef || ref;
+
       if (overrideRef) {
         addToHistory({ type: "link", value: overrideRef });
       } else if (file) {
@@ -67,6 +70,7 @@ export default function Summarize() {
       } else if (ref) {
         addToHistory({ type: "link", value: ref });
       }
+
       const res = await startJob({
         ref: usedRef || undefined,
         file: overrideRef ? undefined : file,
@@ -77,6 +81,7 @@ export default function Summarize() {
       setJobId(res.id);
       setStatus("queued");
       toast.success("Job started");
+
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(() => poll(res.id), 1500);
     } catch (e: any) {
@@ -97,15 +102,24 @@ export default function Summarize() {
     try {
       const j = await getJob(id);
       setStatus(j.status);
+
       if (j.status === "failed") {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
         const err = j.error?.message || JSON.stringify(j.error);
         toast.error(`Failed: ${err}`);
       }
+
       if (j.status === "done") {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
         const s = await getSummary(id);
         if (s?.payload?.summary) setSummary(s.payload.summary);
+
         if (s?.payload?.meta?.title) {
           setHistory((prev) => {
             if (prev.length === 0) return prev;
@@ -120,12 +134,16 @@ export default function Summarize() {
           });
         }
       }
-    } catch (e) {
+    } catch {
       // ignore transient errors
     }
   }
 
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const hc = localStorage.getItem("hasAccount") === "true";
@@ -134,10 +152,13 @@ export default function Summarize() {
     setTestCount(tc);
     const hist = localStorage.getItem("history");
     if (hist) {
-      try { setHistory(JSON.parse(hist)); } catch {}
+      try {
+        setHistory(JSON.parse(hist));
+      } catch {}
     }
   }, []);
 
+  // Increment test counter once per summary generation (avoid testCount in deps to prevent loop)
   useEffect(() => {
     if (summary && !hasAccount) {
       setTestCount((prev) => {
@@ -146,8 +167,9 @@ export default function Summarize() {
         return newCount;
       });
     }
-  }, [summary, hasAccount, testCount]);
+  }, [summary, hasAccount]);
 
+  // Center the summary into view when it appears
   useEffect(() => {
     if (summary && summaryRef.current) {
       summaryRef.current.scrollIntoView({
@@ -157,7 +179,6 @@ export default function Summarize() {
       });
     }
   }, [summary]);
-
 
   return (
     <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
@@ -178,10 +199,23 @@ export default function Summarize() {
                   </a>
                 ) : (
                   <a
-                    href={h.value.startsWith("http") ? h.value : `https://doi.org/${h.value}`}
+                    href={
+                      h.value.startsWith("http")
+                        ? h.value
+                        : `https://doi.org/${h.value}`
+                    }
                     target="_blank"
                     rel="noopener"
                     className="text-neutral-400 hover:underline block truncate"
+                    draggable
+                    onDragStart={(e) => {
+                      // Provide both plain text and URI formats for drop targets
+                      e.dataTransfer.setData("text/plain", h.value);
+                      const url = h.value.startsWith("http")
+                        ? h.value
+                        : `https://doi.org/${h.value}`;
+                      e.dataTransfer.setData("text/uri-list", url);
+                    }}
                   >
                     {h.title || h.value}
                   </a>
@@ -194,10 +228,14 @@ export default function Summarize() {
       <div className="flex-1 flex flex-col">
         <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
-          <p className="text-neutral-400 mb-8 text-sm sm:text-base">AI that turns research into clear, engaging summaries.</p>
-          {!hasAccount && (
-            testCount < 5 ? (
-              <p className="text-neutral-400 mb-4 text-sm">Tests remaining: {5 - testCount}</p>
+          <p className="text-neutral-400 mb-8 text-sm sm:text-base">
+            AI that turns research into clear, engaging summaries.
+          </p>
+          {!hasAccount &&
+            (testCount < 5 ? (
+              <p className="text-neutral-400 mb-4 text-sm">
+                Tests remaining: {5 - testCount}
+              </p>
             ) : (
               <div className="text-neutral-400 mb-4 text-sm flex flex-col items-center gap-2">
                 <p>Test limit reached.</p>
@@ -208,11 +246,13 @@ export default function Summarize() {
                   Create account
                 </Link>
               </div>
-            )
-          )}
+            ))}
+
           <div className="w-full max-w-xl">
             <div
-              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30 ${dragOver ? 'ring-2 ring-white/30' : ''}`}
+              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl sm:rounded-full border border-neutral-700 bg-neutral-900/60 px-4 py-3 focus-within:ring-2 focus-within:ring-white/30 ${
+                dragOver ? "ring-2 ring-white/30" : ""
+              }`}
               onDragOver={(e) => {
                 if (showArxiv) return;
                 e.preventDefault();
@@ -228,9 +268,16 @@ export default function Summarize() {
                 e.preventDefault();
                 setDragOver(false);
                 const dropped = e.dataTransfer.files?.[0];
+                const link =
+                  e.dataTransfer.getData("text/uri-list") ||
+                  e.dataTransfer.getData("text/plain");
                 if (dropped) {
                   setFile(dropped);
                   setRef("");
+                } else if (link) {
+                  setFile(null);
+                  setRef(link);
+                  onStart(link);
                 }
               }}
             >
@@ -244,7 +291,11 @@ export default function Summarize() {
                       onChange={(e) => setFile(e.target.files?.[0] || null)}
                     />
                     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                      <path stroke="currentColor" strokeWidth="1.5" d="M12 4.5v15m7.5-7.5h-15" />
+                      <path
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
                     </svg>
                   </label>
                 )}
@@ -254,7 +305,7 @@ export default function Summarize() {
                   value={ref}
                   onChange={(e) => setRef(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') onStart();
+                    if (e.key === "Enter") onStart();
                   }}
                 />
               </div>
@@ -275,9 +326,10 @@ export default function Summarize() {
                   setFile(null);
                 }}
               >
-                Arxiv
+                arXiv
               </button>
             </div>
+
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <select
                 className="bg-neutral-900/60 border border-neutral-700 rounded-full px-3 py-2 text-sm text-neutral-200 w-auto"
@@ -300,8 +352,11 @@ export default function Summarize() {
                 <option value="de">German</option>
               </select>
             </div>
+
             {!showArxiv && file && (
-              <p className="mt-2 text-xs text-neutral-400">Selected: {file.name}</p>
+              <p className="mt-2 text-xs text-neutral-400">
+                Selected: {file.name}
+              </p>
             )}
           </div>
         </section>
@@ -319,8 +374,8 @@ export default function Summarize() {
                 className="text-neutral-200 whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{
                   __html: summary
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n/g, '<br/>'),
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br/>"),
                 }}
               />
             </article>
@@ -332,4 +387,3 @@ export default function Summarize() {
     </main>
   );
 }
-
