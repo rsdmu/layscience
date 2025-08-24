@@ -115,20 +115,29 @@ pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
 
 
 def _send_verification_email(to: str, code: str) -> None:
+    app_name = os.getenv("APP_NAME", "LayScience")
+    logo_url = os.getenv("APP_LOGO_URL", "https://layscience.ai/logo.png")
     mail_api_key = os.getenv("MAIL_API_KEY")
     if mail_api_key:
         from_email = os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
-        app_name = os.getenv("APP_NAME", "LayScience")
         try:
             import resend
 
             resend.api_key = mail_api_key
+            html = (
+                f'<div style="font-family:sans-serif">'
+                f'<img src="{logo_url}" alt="{app_name} logo" style="max-width:200px"/>'
+                f'<p>Welcome to {app_name}! Use the verification code below to finish setting up your account.</p>'
+                f'<p style="font-size:1.5em"><strong>{code}</strong></p>'
+                f"</div>"
+            )
             resend.Emails.send(
                 {
                     "from": from_email,
                     "to": [to],
                     "subject": f"{app_name} verification code",
-                    "text": f"Your verification code is {code}",
+                    "text": f"Welcome to {app_name}! Your verification code is {code}",
+                    "html": html,
                 }
             )
         except Exception:  # pragma: no cover - log but continue
@@ -141,13 +150,20 @@ def _send_verification_email(to: str, code: str) -> None:
     user = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASS")
 
-    app_name = os.getenv("APP_NAME", "LayScience")
     from_email = user or os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
     msg = EmailMessage()
     msg["Subject"] = f"{app_name} verification code"
     msg["From"] = from_email
     msg["To"] = to
-    msg.set_content(f"Your verification code is {code}")
+    msg.set_content(f"Welcome to {app_name}! Your verification code is {code}")
+    html = (
+        f'<div style="font-family:sans-serif">'
+        f'<img src="{logo_url}" alt="{app_name} logo" style="max-width:200px"/>'
+        f'<p>Welcome to {app_name}! Use the verification code below to finish setting up your account.</p>'
+        f'<p style="font-size:1.5em"><strong>{code}</strong></p>'
+        f"</div>"
+    )
+    msg.add_alternative(html, subtype="html")
 
     if host:
         with smtplib.SMTP(host, port) as server:
@@ -354,6 +370,18 @@ def delete_account(req: DeleteAccountRequest, request: Request):
     accounts.pop(req.email, None)
     _save_json(ACCOUNTS_PATH, accounts)
     return {"status": "deleted"}
+
+
+@app.get("/api/v1/admin/users")
+def admin_users(request: Request):
+    """Return all registered users if authorized."""
+    token = request.headers.get("X-Admin-Token")
+    if not token or token != ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return [
+        {"email": email, "username": rec.get("username", "")}
+        for email, rec in accounts.items()
+    ]
 
 
 class FeedbackSurvey(BaseModel):

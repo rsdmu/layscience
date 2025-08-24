@@ -37,7 +37,8 @@ def test_register_sends_email(monkeypatch):
 
         def send_message(self, msg):
             captured["to"] = msg["To"]
-            captured["body"] = msg.get_content()
+            body = msg.get_body(preferencelist=("plain", "html"))
+            captured["body"] = body.get_content() if body else ""
 
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
     # Intentionally do not set SMTP_PORT to rely on default 587
