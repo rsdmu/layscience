@@ -52,7 +52,7 @@ export default function Welcome() {
         muted
         playsInline
         poster="/gif.gif"
-        className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
+        className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none"
       />
       <Image src="/icon.png" alt="Lay Science logo" width={96} height={96} className="mb-4 opacity-80" />
       <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl mb-6">Lay Science</h1>
