@@ -229,14 +229,14 @@ export default function Summarize() {
             <p className="text-neutral-500">No recent references.</p>
           )}
         </div>
-        <div className="mt-4 flex flex-col items-start gap-2">
-          <UserFab />
-          <p className="text-xs text-neutral-500">
-            AI can make mistakes. LayScience is still in test.
-          </p>
-        </div>
+        <p className="mt-4 text-xs text-neutral-500">
+          AI can make mistakes. LayScience is still in test.
+        </p>
       </aside>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative">
+        <div className="absolute top-4 left-4">
+          <UserFab />
+        </div>
         <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
           <p className="text-neutral-400 mb-8 text-sm sm:text-base">
