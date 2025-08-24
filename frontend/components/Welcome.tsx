@@ -44,25 +44,38 @@ export default function Welcome() {
   }
 
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center bg-neutral-950 text-neutral-100 px-4 sm:px-6 text-center">
+    <main className="relative min-h-dvh flex flex-col items-center justify-center bg-neutral-950 text-neutral-100 px-4 sm:px-6 text-center overflow-hidden">
+      <video
+        className="absolute inset-0 w-full h-full object-cover opacity-40 -z-10"
+        autoPlay
+        loop
+        muted
+        playsInline
+        src="/video.mp4"
+      />
       <Image src="/icon.png" alt="Lay Science logo" width={96} height={96} className="mb-4 opacity-80" />
       <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl mb-6">Lay Science</h1>
 
       {step === "choice" && (
-        <div className="space-y-4 w-full max-w-xs sm:max-w-sm md:max-w-md">
-          <button
-            className="w-full rounded bg-white/10 hover:bg-white/20 py-2"
-            onClick={() => setStep("register")}
-          >
-            Create account
-          </button>
-          <Link
-            href="/summarize"
-            className="block w-full rounded border border-white/10 py-2 hover:bg-white/5"
-          >
-            Test without account
-          </Link>
-        </div>
+        <>
+          <div className="space-y-4 w-full max-w-xs sm:max-w-sm md:max-w-md">
+            <button
+              className="w-full rounded bg-white/10 hover:bg-white/20 py-2"
+              onClick={() => setStep("register")}
+            >
+              Create account
+            </button>
+            <Link
+              href="/summarize"
+              className="block w-full rounded border border-white/10 py-2 hover:bg-white/5"
+            >
+              Test without account
+            </Link>
+          </div>
+          <p className="mt-8 max-w-xl mx-auto text-neutral-200">
+            LayScience makes research papers easy. Paste a DOI, link, or upload a PDF—get clear, engaging summaries in minutes. Instantly see the Problem → Solution → Impact in your language and style. Save time, spark curiosity, and unlock science for everyone.
+          </p>
+        </>
       )}
       {step === "register" && (
         <div className="space-y-4 w-full max-w-xs sm:max-w-sm md:max-w-md">
