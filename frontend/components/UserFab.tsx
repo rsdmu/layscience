@@ -31,7 +31,7 @@ export default function UserFab() {
   }
 
   return (
-    <>
+    <div className="relative">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -39,8 +39,15 @@ export default function UserFab() {
       >
         {getInitials(user)}
       </button>
-      {open && <UserPanel onClose={() => setOpen(false)} user={user} />}
-    </>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setOpen(false)} />
+          <div className="absolute left-full ml-2 top-0 z-50">
+            <UserPanel user={user} />
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

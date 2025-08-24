@@ -4,7 +4,6 @@ import { useState } from "react";
 import FeedbackTab from "./Feedback/FeedbackTab";
 
 interface Props {
-  onClose: () => void;
   user: { username?: string; email?: string };
 }
 
@@ -32,38 +31,30 @@ function AccountTab({ user, onDelete }: { user: { username?: string; email?: str
   );
 }
 
-export default function UserPanel({ onClose, user }: Props) {
+export default function UserPanel({ user }: Props) {
   const tabs = ["Summaries", "Feedback", "Account"] as const;
   type Tab = (typeof tabs)[number];
   const [tab, setTab] = useState<Tab>("Summaries");
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-start bg-black/30 px-4 pt-14 pb-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-xs rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-100 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex border-b border-neutral-700">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-sm font-medium hover:bg-neutral-800 ${
-                tab === t ? "bg-neutral-800" : ""
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        <div className="p-4 max-h-80 overflow-y-auto">
-          {tab === "Summaries" && <SummariesTab />}
-          {tab === "Feedback" && <FeedbackTab />}
-          {tab === "Account" && <AccountTab user={user} onDelete={() => {}} />}
-        </div>
+    <div className="w-full max-w-xs rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-100 shadow-lg">
+      <div className="flex border-b border-neutral-700">
+        {tabs.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 py-2 text-sm font-medium hover:bg-neutral-800 ${
+              tab === t ? "bg-neutral-800" : ""
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      <div className="p-4 max-h-80 overflow-y-auto">
+        {tab === "Summaries" && <SummariesTab />}
+        {tab === "Feedback" && <FeedbackTab />}
+        {tab === "Account" && <AccountTab user={user} onDelete={() => {}} />}
       </div>
     </div>
   );
