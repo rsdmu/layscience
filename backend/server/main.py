@@ -270,6 +270,10 @@ class ResendRequest(BaseModel):
     email: str
 
 
+class DeleteAccountRequest(BaseModel):
+    email: str
+
+
 def _generate_code() -> str:
     """Generate a 6-digit verification code using a cryptographically strong RNG."""
     return f"{secrets.randbelow(1_000_000):06d}"
@@ -337,6 +341,18 @@ def verify(req: VerifyRequest):
     _save_json(ACCOUNTS_PATH, accounts)
     _save_json(PENDING_PATH, pending_codes)
     return {"status": "verified"}
+
+
+@app.delete("/api/v1/account")
+def delete_account(req: DeleteAccountRequest, request: Request):
+    """Delete an existing account."""
+    # Optional auth header for future use
+    request.headers.get("Authorization")  # no-op
+    if req.email not in accounts:
+        raise HTTPException(status_code=404, detail="Account not found")
+    accounts.pop(req.email, None)
+    _save_json(ACCOUNTS_PATH, accounts)
+    return {"status": "deleted"}
 
 
 class FeedbackSurvey(BaseModel):
