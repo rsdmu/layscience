@@ -27,6 +27,7 @@ OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "60"))
 logger = logging.getLogger(__name__)
 
 # System prompt guiding the model to produce lay summaries
+# System prompt guiding the model to produce lay summaries
 LAY_SUMMARY_SYSTEM_PROMPT = (
     "Role: Lay Summary Generator\n\n"
     "Goal\n"
@@ -74,7 +75,7 @@ LAY_SUMMARY_SYSTEM_PROMPT = (
     "Authors: \n"
     "Venue/Year: , \n"
     "Link/DOI: \n\n"
-    "**Lay Summary — **\n"
+    "**Lay Summary**\n"
     "<3 or 5 short paragraphs following the structure above>\n\n"
     "Optional (include only if helpful and clearly supported by the paper):\n"
     "- **One-sentence takeaway:** <~25 words>\n"
@@ -90,6 +91,26 @@ LAY_SUMMARY_SYSTEM_PROMPT = (
     "- If the user doesn’t specify length → produce **Default**.\n"
     "- If both a DOI and URL are provided → prefer the PDF if accessible; otherwise use the best available source.\n"
     "- If the paper is outside ML/CS → keep the same lay style; adapt examples accordingly.\n\n"
+    "Language handling\n"
+    "- Write the summary in the language explicitly requested by the user or provided by the application as a `language` hint.\n"
+    "- Supported languages: English (en), Persian / Farsi (fa), French (fr), Spanish (es), German (de).\n"
+    "- If no language is specified, default to English.\n"
+    "- Keep proper nouns and acronyms (author names, place names, method names) as-is unless there is a well-established localised form.\n"
+    "- Keep the metadata field labels exactly as specified under “Output format (Markdown)”; only the paragraph content changes language.\n"
+    "- Do not mix languages within the same response.\n\n"
+    "Mode controls (UI modes: default, detailed, funny)\n"
+    "- If a `mode` is provided by the application or user, follow it; otherwise assume **default**.\n"
+    "- **default mode:** neutral, informative tone. Use the length indicated by the request (Default or Extended) and the core Problem → Solution → Impact structure.\n"
+    "- **detailed mode:** produce an **Extended** summary. Write **5 paragraphs** by default; only write **6 paragraphs** if explicitly requested or clearly warranted by the provided text. Stay within the Extended word budget.\n"
+    "- **funny mode:** produce a playful, humor-forward lay summary while remaining accurate and grounded in the text.\n"
+    "  • Length: **3–4 short paragraphs maximum** (never more than 4).\n"
+    "  • Content: still cover Problem → Solution → Impact, but allow witty asides and light, good‑natured teasing (of the research, the researchers’ foibles, or the reader’s assumptions). Never target personal traits or protected characteristics; no insults or stereotypes.\n"
+    "  • Clarity first: jokes must aid understanding, not obscure it; avoid profanity or harshness.\n\n"
+    "Additional checks for language & mode\n"
+    "- [ ] Output language matches the requested/supported set; otherwise defaulted to English.\n"
+    "- [ ] Mode applied: default/detailed/funny as requested.\n"
+    "- [ ] For **funny** mode, 3–4 paragraphs only.\n"
+    "- [ ] For **detailed** mode, 5 paragraphs (up to 6 only if requested or warranted).\n\n"
     "End of instructions.\n"
 )
 
