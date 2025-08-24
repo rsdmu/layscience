@@ -107,6 +107,7 @@ DATA_DIR = os.getenv("DATA_DIR", "data")
 ACCOUNTS_PATH = os.path.join(DATA_DIR, "accounts.json")
 PENDING_PATH = os.path.join(DATA_DIR, "pending_codes.json")
 FEEDBACK_PATH = os.path.join(DATA_DIR, "feedback.json")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
 
 # Load any existing account data from disk
 accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
@@ -337,6 +338,19 @@ def verify(req: VerifyRequest):
     _save_json(ACCOUNTS_PATH, accounts)
     _save_json(PENDING_PATH, pending_codes)
     return {"status": "verified"}
+
+
+@app.get("/api/v1/admin/users")
+def admin_users(request: Request):
+    """Return all registered accounts, protected by a simple admin token."""
+    expected = ADMIN_TOKEN
+    provided = request.headers.get("X-Admin-Token")
+    if not expected or not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return [
+        {"email": email, "username": info.get("username", "")}
+        for email, info in accounts.items()
+    ]
 
 
 class FeedbackSurvey(BaseModel):
