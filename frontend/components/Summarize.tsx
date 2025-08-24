@@ -5,6 +5,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { startJob, getJob, getSummary } from "@/lib/api";
 import ArxivSearch from "@/components/ArxivSearch";
+import UserFab from "@/components/UserFab";
 
 type HistoryItem = {
   type: "link" | "pdf";
@@ -182,50 +183,60 @@ export default function Summarize() {
 
   return (
     <main className="min-h-dvh flex bg-neutral-950 text-neutral-100">
-      {history.length > 0 && (
-        <aside className="w-full max-w-sm max-h-dvh overflow-y-auto border-r border-neutral-800 p-4 text-sm text-neutral-400">
+      <aside className="w-full max-w-xs max-h-dvh border-r border-neutral-800 p-4 text-sm text-neutral-400 flex flex-col">
+        <div className="flex-1 overflow-y-auto">
           <p className="mb-2">Recent references:</p>
-          <ul className="space-y-1">
-            {history.map((h, i) => (
-              <li key={i}>
-                {h.type === "pdf" ? (
-                  <a
-                    href={h.value}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-neutral-400 hover:underline block truncate"
-                  >
-                    {h.title || h.name || "PDF"}
-                  </a>
-                ) : (
-                  <a
-                    href={
-                      h.value.startsWith("http")
-                        ? h.value
-                        : `https://doi.org/${h.value}`
-                    }
-                    target="_blank"
-                    rel="noopener"
-                    className="text-neutral-400 hover:underline block truncate"
-                    draggable
-                    onDragStart={(e) => {
-                      // Provide both plain text and URI formats for drop targets
-                      e.dataTransfer.setData("text/plain", h.value);
-                      const url = h.value.startsWith("http")
-                        ? h.value
-                        : `https://doi.org/${h.value}`;
-                      e.dataTransfer.setData("text/uri-list", url);
-                    }}
-                  >
-                    {h.title || h.value}
-                  </a>
-                )}
-              </li>
-            ))}
-          </ul>
-        </aside>
-      )}
-      <div className="flex-1 flex flex-col">
+          {history.length > 0 ? (
+            <ul className="space-y-1">
+              {history.map((h, i) => (
+                <li key={i}>
+                  {h.type === "pdf" ? (
+                    <a
+                      href={h.value}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-neutral-400 hover:underline block truncate"
+                    >
+                      {h.title || h.name || "PDF"}
+                    </a>
+                  ) : (
+                    <a
+                      href={
+                        h.value.startsWith("http")
+                          ? h.value
+                          : `https://doi.org/${h.value}`
+                      }
+                      target="_blank"
+                      rel="noopener"
+                      className="text-neutral-400 hover:underline block truncate"
+                      draggable
+                      onDragStart={(e) => {
+                        // Provide both plain text and URI formats for drop targets
+                        e.dataTransfer.setData("text/plain", h.value);
+                        const url = h.value.startsWith("http")
+                          ? h.value
+                          : `https://doi.org/${h.value}`;
+                        e.dataTransfer.setData("text/uri-list", url);
+                      }}
+                    >
+                      {h.title || h.value}
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-neutral-500">No recent references.</p>
+          )}
+        </div>
+        <p className="mt-4 text-xs text-neutral-500">
+          AI can make mistakes. LayScience is still in test.
+        </p>
+      </aside>
+      <div className="flex-1 flex flex-col relative">
+        <div className="absolute top-4 left-4">
+          <UserFab />
+        </div>
         <section className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <h1 className="font-heading text-4xl sm:text-5xl mb-2">Lay Science</h1>
           <p className="text-neutral-400 mb-8 text-sm sm:text-base">
