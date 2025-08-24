@@ -117,7 +117,7 @@ pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
 
 def _send_verification_email(to: str, code: str) -> None:
     app_name = os.getenv("APP_NAME", "LayScience")
-    logo_url = os.getenv("APP_LOGO_URL", "https://layscience.ai/logo.png")
+    logo_url = os.getenv("APP_LOGO_URL", "https://layscience.ai/icon.png")
     mail_api_key = os.getenv("MAIL_API_KEY")
     if mail_api_key:
         from_email = os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")

@@ -39,6 +39,8 @@ def test_register_sends_email(monkeypatch):
             captured["to"] = msg["To"]
             body = msg.get_body(preferencelist=("plain", "html"))
             captured["body"] = body.get_content() if body else ""
+            html = msg.get_body(preferencelist=("html",))
+            captured["html"] = html.get_content() if html else ""
 
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
     # Intentionally do not set SMTP_PORT to rely on default 587
@@ -56,3 +58,4 @@ def test_register_sends_email(monkeypatch):
     assert captured["port"] == 587
     assert captured["to"] == "alice@example.com"
     assert "verification code" in captured["body"].lower()
+    assert "icon.png" in captured["html"]
