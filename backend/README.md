@@ -25,6 +25,7 @@ The backend uses environment variables for configuration:
 | `UPLOADS_DIR` | `uploads` | Directory where uploaded PDFs are stored. |
 | `DATA_DIR` | `data` | Base directory for data (used for the job DB). |
 | `JOBS_DB_PATH` | `data/jobs.sqlite3` | SQLite database path; falls back to `/tmp/jobs.sqlite3` if unwritable. |
+| `DATABASE_URL` | – | PostgreSQL connection string for storing user accounts. If unset, accounts are stored in local JSON files. |
 | `LOG_LEVEL` | `INFO` | Logging level. |
 | `DRY_RUN` | `0` | Set to `1` to skip OpenAI API calls and return mock summaries. |
 | `SMTP_HOST` | – | SMTP server host for sending verification emails. If unset, codes are logged. |
@@ -47,6 +48,9 @@ pip install -r backend/requirements.txt
 
 # set your OpenAI key
 export OPENAI_API_KEY=sk-...
+
+# configure a PostgreSQL database for account storage
+# export DATABASE_URL=postgresql://user:password@host:5432/layscience_data
 
 # (optional) set Resend credentials for verification emails
 export MAIL_API_KEY=rk_test_yourkey
