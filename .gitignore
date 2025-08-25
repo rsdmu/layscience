@@ -27,3 +27,5 @@ pnpm-debug.log*
 uploads/
 data/accounts.json
 data/pending_codes.json
+data/jobs.sqlite3*
+data/forum.sqlite3*
