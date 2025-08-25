@@ -173,5 +173,5 @@ def test_mode_and_language(monkeypatch):
     data = res.json()
     assert data["status"] == "done"
     assert captured["length"] == "default"
-    assert "humorous" in captured["system"].lower()
+    assert "playful" in captured["system"].lower()
     assert "French" in captured["system"]

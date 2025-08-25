@@ -638,11 +638,12 @@ async def process_job(job_id: str, request_id: str):
             )
 
         # Summarise using OpenAI
-        sys_prompt = summarizer.LAY_SUMMARY_SYSTEM_PROMPT
-        if mode == "detailed":
-            sys_prompt += "\nWrite a detailed lay summary in five short paragraphs."
-        elif mode == "funny":
-            sys_prompt += "\nWrite the lay summary in a humorous and light-hearted tone while staying accurate."
+        sys_prompt_map = {
+            "default": summarizer.LAY_SUMMARY_SYSTEM_PROMPT_DEFAULT,
+            "detailed": summarizer.LAY_SUMMARY_SYSTEM_PROMPT_DETAILED,
+            "funny": summarizer.LAY_SUMMARY_SYSTEM_PROMPT_FUNNY,
+        }
+        sys_prompt = sys_prompt_map.get(mode, summarizer.LAY_SUMMARY_SYSTEM_PROMPT_DEFAULT)
         if language != "en":
             lang_name = {
                 "fa": "Persian",
