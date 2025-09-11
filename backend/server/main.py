@@ -2,11 +2,14 @@
 Main entry point for the LayScience summarisation API.
 
 This FastAPI app exposes endpoints to start a summarisation job from a DOI/URL or PDF,
-poll job status, and retrieve the finished summary.  Jobs are persisted in an
+poll job status, and retrieve the finished summary. Jobs are persisted in an
 SQLite database and processed asynchronously via FastAPI background tasks.
 
-Environment variables control model selection, API key, CORS origins and
-paths for uploads and the job database.  See ``backend/README.md`` for details.
+Updates:
+- Strong email validation via Pydantic EmailStr (prevents sending to non-emails).
+- _send_verification_email now returns bool and no longer swallows errors silently.
+- Endpoints /register and /api/v1/resend return 502 if sending fails (front-end won’t claim success if nothing was sent).
+- “From” header normalized to a friendly format when using Resend/SMTP.
 """
 
 import os
@@ -26,7 +29,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, UploadFile, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr  # <-- EmailStr added
 
 from .services import jobs as jobs_store
 from .services import (
@@ -123,48 +126,28 @@ else:
     pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
 
 
-def _send_verification_email(to: str, code: str) -> None:
+def _format_from_for_resend() -> str:
+    """
+    Normalize the MAIL_FROM env to a Resend-friendly From value.
+    - If MAIL_FROM already includes a display name (contains '<' and '>'), return as-is.
+    - Else wrap with a friendly name: 'LayScience <addr>'.
+    """
+    raw = os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
+    if "<" in raw and ">" in raw:
+        return raw
+    app_name = os.getenv("APP_NAME", "LayScience")
+    return f"{app_name} <{raw}>"
+
+
+def _send_verification_email(to: str, code: str) -> bool:
+    """
+    Send a verification email via Resend (preferred) or SMTP fallback.
+    Returns True on accepted/queued; False if sending failed.
+    """
     app_name = os.getenv("APP_NAME", "LayScience")
     logo_url = os.getenv("APP_LOGO_URL", "https://layscience.ai/icon.png")
     mail_api_key = os.getenv("MAIL_API_KEY")
-    if mail_api_key:
-        from_email = os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
-        try:
-            import resend
 
-            resend.api_key = mail_api_key
-            html = (
-                f'<div style="font-family:sans-serif">'
-                f'<img src="{logo_url}" alt="{app_name} logo" style="max-width:200px"/>'
-                f'<p>Welcome to {app_name}! Use the verification code below to finish setting up your account.</p>'
-                f'<p style="font-size:1.5em"><strong>{code}</strong></p>'
-                f"</div>"
-            )
-            resend.Emails.send(
-                {
-                    "from": from_email,
-                    "to": [to],
-                    "subject": f"{app_name} verification code",
-                    "text": f"Welcome to {app_name}! Your verification code is {code}",
-                    "html": html,
-                }
-            )
-        except Exception:  # pragma: no cover - log but continue
-            logger.exception("Failed to send verification email via Resend")
-        return
-
-    host = os.getenv("SMTP_HOST")
-    # Default to the standard SMTP submission port if none provided
-    port = int(os.getenv("SMTP_PORT") or 587)
-    user = os.getenv("SMTP_USER")
-    password = os.getenv("SMTP_PASS")
-
-    from_email = user or os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
-    msg = EmailMessage()
-    msg["Subject"] = f"{app_name} verification code"
-    msg["From"] = from_email
-    msg["To"] = to
-    msg.set_content(f"Welcome to {app_name}! Your verification code is {code}")
     html = (
         f'<div style="font-family:sans-serif">'
         f'<img src="{logo_url}" alt="{app_name} logo" style="max-width:200px"/>'
@@ -172,19 +155,64 @@ def _send_verification_email(to: str, code: str) -> None:
         f'<p style="font-size:1.5em"><strong>{code}</strong></p>'
         f"</div>"
     )
+
+    # Preferred: Resend
+    if mail_api_key:
+        try:
+            import resend
+
+            resend.api_key = mail_api_key
+            from_value = _format_from_for_resend()
+            payload = {
+                "from": from_value,
+                "to": [to],
+                "subject": f"{app_name} verification code",
+                "text": f"Welcome to {app_name}! Your verification code is {code}",
+                "html": html,
+            }
+            resp = resend.Emails.send(payload)
+            logger.info("Resend accepted message: %s", resp)
+            return True
+        except Exception:
+            logger.exception("Failed to send verification email via Resend")
+            return False
+
+    # Fallback: SMTP (dev or custom SMTP)
+    host = os.getenv("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT") or 587)  # standard submission
+    user = os.getenv("SMTP_USER")
+    password = os.getenv("SMTP_PASS")
+    use_tls = os.getenv("SMTP_TLS") == "1"
+
+    from_email = user or os.getenv("MAIL_FROM", "no-reply@mail.layscience.ai")
+    # For SMTP we can also present a friendly From header
+    app_name = os.getenv("APP_NAME", "LayScience")
+    from_header = f"{app_name} <{from_email}>" if "<" not in from_email else from_email
+
+    msg = EmailMessage()
+    msg["Subject"] = f"{app_name} verification code"
+    msg["From"] = from_header
+    msg["To"] = to
+    msg.set_content(f"Welcome to {app_name}! Your verification code is {code}")
     msg.add_alternative(html, subtype="html")
 
     if host:
-        with smtplib.SMTP(host, port) as server:
-            server.ehlo()
-            if os.getenv("SMTP_TLS") == "1":
-                server.starttls()
+        try:
+            with smtplib.SMTP(host, port) as server:
                 server.ehlo()
-            if user and password:
-                server.login(user, password)
-            server.send_message(msg)
-    else:  # pragma: no cover - fallback for dev environments
+                if use_tls:
+                    server.starttls()
+                    server.ehlo()
+                if user and password:
+                    server.login(user, password)
+                server.send_message(msg)
+            return True
+        except Exception:
+            logger.exception("SMTP send failed")
+            return False
+    else:  # Dev mode: no SMTP—log the code to server logs and consider it "sent"
         logger.info(f"Verification code for {to}: {code}")
+        return True
 
 
 # CORS -----------------------------------------------------------------------
@@ -208,7 +236,7 @@ app.add_middleware(
 async def add_request_id(request: Request, call_next):
     """
     Middleware that assigns a request ID to every incoming request and
-    attaches it to logs and responses.  Handles user‑facing errors and
+    attaches it to logs and responses. Handles user‑facing errors and
     unexpected exceptions uniformly.
     """
     req_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
@@ -217,7 +245,6 @@ async def add_request_id(request: Request, call_next):
     try:
         response = await call_next(request)
     except err.UserFacingError as e:
-        # user‑facing errors: return structured JSON
         logger.error(f"{e.code}: {e.public_message}", extra={"request_id": req_id})
         payload = {
             "error": e.code,
@@ -230,7 +257,6 @@ async def add_request_id(request: Request, call_next):
             status_code=e.status_code, content=payload, headers={"X-Request-ID": req_id}
         )
     except Exception as e:  # pragma: no cover
-        # catch all unexpected exceptions
         tb = traceback.format_exc(limit=3)
         logger.exception("Unhandled error", extra={"request_id": req_id})
         payload = {
@@ -282,22 +308,24 @@ def version():
     return {"name": "layscience-backend", "version": "1.0.0"}
 
 
+# ---- Registration & verification models (now using EmailStr) ----------------
+
 class RegisterRequest(BaseModel):
     username: str
-    email: str
+    email: EmailStr
 
 
 class VerifyRequest(BaseModel):
-    email: str
+    email: EmailStr
     code: str
 
 
 class ResendRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class DeleteAccountRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 def _generate_code() -> str:
@@ -324,9 +352,17 @@ def register(req: RegisterRequest):
         accounts_db.upsert_pending_code(req.email, pending_codes[req.email])
     else:
         _save_json(PENDING_PATH, pending_codes)
-    _send_verification_email(req.email, code)
+
+    sent = _send_verification_email(req.email, code)
+    if not sent:
+        # Keep the pending code stored, but tell the client to retry
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to send verification email. Please try again.",
+        )
+
     resp = {"status": "sent"}
-    if not os.getenv("SMTP_HOST"):
+    if not os.getenv("SMTP_HOST") and not os.getenv("MAIL_API_KEY"):
         resp["dev_hint"] = "code logged to server"
     return resp
 
@@ -348,13 +384,21 @@ def resend(req: ResendRequest):
         }
         record = pending_codes[req.email]
     record["resent"] = record.get("resent", 0) + 1
+
     if DATABASE_URL:
         accounts_db.upsert_pending_code(req.email, pending_codes[req.email])
     else:
         _save_json(PENDING_PATH, pending_codes)
-    _send_verification_email(req.email, code)
+
+    sent = _send_verification_email(req.email, code)
+    if not sent:
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to send verification email. Please try again.",
+        )
+
     resp = {"status": "resent"}
-    if not os.getenv("SMTP_HOST"):
+    if not os.getenv("SMTP_HOST") and not os.getenv("MAIL_API_KEY"):
         resp["dev_hint"] = "code logged to server"
     return resp
 
@@ -385,7 +429,6 @@ def verify(req: VerifyRequest):
 @app.delete("/api/v1/account")
 def delete_account(req: DeleteAccountRequest, request: Request):
     """Delete an existing account."""
-    # Optional auth header for future use
     request.headers.get("Authorization")  # no-op
     if req.email not in accounts:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -401,7 +444,6 @@ def delete_account(req: DeleteAccountRequest, request: Request):
 def admin_users(request: Request):
     """Return all registered users if authorized."""
     token = request.headers.get("X-Admin-Token")
-    # Use constant‑time comparison and also protect the "ADMIN_TOKEN unset" case.
     if not ADMIN_TOKEN or not secrets.compare_digest(token or "", ADMIN_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return [
@@ -414,11 +456,11 @@ def admin_users(request: Request):
 class FeedbackTopic(BaseModel):
     title: str = Field(..., max_length=100)
     body: str = Field(..., max_length=1000)
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None  # optional but validated when present
 
 class FeedbackReply(BaseModel):
     body: str = Field(..., max_length=1000)
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None  # optional but validated when present
 
 @app.get("/api/v1/feedback/topics")
 def list_feedback_topics(page: int = 1):
@@ -486,7 +528,7 @@ async def start_summary(
 
     This endpoint accepts either JSON (application/json) with a ``ref`` and
     optional ``length`` field, or a multipart form with fields ``ref``/``doi``/``url``,
-    optional ``pdf`` and ``length``.  The server stores the uploaded PDF,
+    optional ``pdf`` and ``length``. The server stores the uploaded PDF,
     creates a job record and schedules processing in a background task.
     """
     rid = getattr(request.state, "request_id", "-")
@@ -591,7 +633,7 @@ async def start_summary(
 
 async def process_job(job_id: str, request_id: str):
     """
-    Background worker that processes a summarisation job.  It extracts the text
+    Background worker that processes a summarisation job. It extracts the text
     from the uploaded PDF or fetches the content from a DOI/URL, calls the
     summariser and writes the result or error back to the job record.
     """
@@ -737,7 +779,6 @@ def get_summary(job_id: str):
 # ----------------------------------------------------------------------------
 # arXiv helpers
 # ----------------------------------------------------------------------------
-
 
 @app.get("/api/v1/arxiv/search", tags=["arxiv"])
 def arxiv_search(q: str, max_results: int = 50):
