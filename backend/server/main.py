@@ -112,18 +112,31 @@ ACCOUNTS_PATH = os.path.join(DATA_DIR, "accounts.json")
 PENDING_PATH = os.path.join(DATA_DIR, "pending_codes.json")
 FEEDBACK_PATH = os.path.join(DATA_DIR, "feedback.json")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
 
-# Load any existing account data from storage
+# Load any existing account data from storage. If a database URL is configured
+# but the connection fails (e.g. misconfigured host in deployment), fall back
+# to the JSON-file implementation so that the service can still boot.
+accounts: Dict[str, Dict[str, Any]]
+pending_codes: Dict[str, Dict[str, Any]]
+
 if DATABASE_URL:
-    from .services import accounts_db
+    try:
+        from .services import accounts_db
 
-    accounts_db.init()
-    accounts = accounts_db.load_accounts()
-    pending_codes = accounts_db.load_pending_codes()
+        accounts_db.init()
+        accounts = accounts_db.load_accounts()
+        pending_codes = accounts_db.load_pending_codes()
+    except Exception:
+        logger.exception(
+            "Failed to initialise accounts database; using JSON storage instead",
+        )
+        DATABASE_URL = None
+        accounts = _load_json(ACCOUNTS_PATH)
+        pending_codes = _load_json(PENDING_PATH)
 else:
-    accounts: Dict[str, Dict[str, Any]] = _load_json(ACCOUNTS_PATH)
-    pending_codes: Dict[str, Dict[str, Any]] = _load_json(PENDING_PATH)
+    accounts = _load_json(ACCOUNTS_PATH)
+    pending_codes = _load_json(PENDING_PATH)
 
 
 def _format_from_for_resend() -> str:
