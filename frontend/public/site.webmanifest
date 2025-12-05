@@ -1,0 +1,15 @@
+{
+  "name": "Lay Science",
+  "short_name": "Lay Science",
+  "icons": [
+    {
+      "src": "/cocoon/static/cocoon-logo-blue.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#1e72ff",
+  "background_color": "#ffffff",
+  "display": "standalone"
+}

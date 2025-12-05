@@ -15,14 +15,18 @@ export const metadata: Metadata = {
     template: "%s | Lay Science",
   },
   description: "AI that turns research into clear, engaging summaries.",
-  icons: { icon: "/icon.png" },
+  icons: {
+    icon: [{ url: "/cocoon/static/cocoon-logo-blue.png", type: "image/png", sizes: "512x512" }],
+    apple: "/cocoon/static/cocoon-logo-blue.png",
+    shortcut: "/cocoon/static/cocoon-logo-blue.png",
+  },
   alternates: { canonical: "/" },
   openGraph: {
     title: "Lay Science",
     description: "AI that turns research into clear, engaging summaries.",
     url: baseUrl,
     siteName: "Lay Science",
-    images: [{ url: "/icon.png", width: 96, height: 96 }],
+    images: [{ url: "/cocoon/static/cocoon-logo-blue.png", width: 512, height: 512 }],
     locale: "en_US",
     type: "website",
   },
@@ -30,8 +34,9 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Lay Science",
     description: "AI that turns research into clear, engaging summaries.",
-    images: ["/icon.png"],
+    images: ["/cocoon/static/cocoon-logo-blue.png"],
   },
+  manifest: "/site.webmanifest",
 };
 
 export const viewport: Viewport = {
